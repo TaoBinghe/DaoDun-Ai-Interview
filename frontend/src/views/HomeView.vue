@@ -1,14 +1,25 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDark, useToggle } from '@vueuse/core'
 import { Sunny, Moon } from '@element-plus/icons-vue'
+import { useUserStore } from '../stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 const isDark = useDark()
 const toggleDark = useToggle(isDark)
 
+onMounted(() => {
+  if (!userStore.user) {
+    userStore.fetchUser()
+  }
+})
+
 const handleLogout = () => {
   localStorage.removeItem('accessToken')
+  localStorage.removeItem('refreshToken')
+  userStore.clearUser()
   router.push('/login')
 }
 </script>
@@ -20,6 +31,7 @@ const handleLogout = () => {
         <h2>AI 面试平台控制台</h2>
       </div>
       <div class="header-right">
+        <span v-if="userStore.user" class="username">{{ userStore.user.username }}</span>
         <el-button type="danger" plain @click="handleLogout">退出登录</el-button>
       </div>
     </el-header>
@@ -28,7 +40,7 @@ const handleLogout = () => {
       <el-card class="welcome-card" shadow="never">
         <template #header>
           <div class="card-header">
-            <span>欢迎回来</span>
+            <span>欢迎回来{{ userStore.user ? `，${userStore.user.username}` : '' }}</span>
           </div>
         </template>
         <div class="welcome-content">
@@ -102,6 +114,16 @@ const handleLogout = () => {
 .header-right {
   display: flex;
   align-items: center;
+  gap: 1rem;
+}
+
+.username {
+  color: #4b5563;
+  font-size: 0.95rem;
+}
+
+.is-dark .username {
+  color: #9ca3af;
 }
 
 .app-main {

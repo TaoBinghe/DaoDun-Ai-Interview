@@ -5,8 +5,10 @@ import { useDark, useToggle } from '@vueuse/core'
 import { User, Lock, Message, Key, Sunny, Moon } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '../utils/request'
+import { useUserStore } from '../stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 const isDark = useDark()
 const toggleDark = useToggle(isDark)
 
@@ -102,6 +104,14 @@ const handlePwdLogin = async () => {
   try {
     const res: any = await request.post('/api/auth/login/password', pwdForm)
     localStorage.setItem('accessToken', res.data.accessToken)
+    if (res.data.refreshToken) {
+      localStorage.setItem('refreshToken', res.data.refreshToken)
+    }
+    userStore.setUser({
+      userId: res.data.userId,
+      username: res.data.username,
+      email: res.data.email
+    })
     ElMessage.success('登录成功')
     router.push('/')
   } catch (error) {
@@ -120,6 +130,14 @@ const handleEmailLogin = async () => {
   try {
     const res: any = await request.post('/api/auth/login/email', emailForm)
     localStorage.setItem('accessToken', res.data.accessToken)
+    if (res.data.refreshToken) {
+      localStorage.setItem('refreshToken', res.data.refreshToken)
+    }
+    userStore.setUser({
+      userId: res.data.userId,
+      username: res.data.username,
+      email: res.data.email
+    })
     ElMessage.success('登录成功')
     router.push('/')
   } catch (error) {

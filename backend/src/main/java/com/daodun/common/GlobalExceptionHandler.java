@@ -2,6 +2,7 @@ package com.daodun.common;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -28,12 +29,12 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 处理业务逻辑异常
+     * 处理业务逻辑异常（401 时返回 HTTP 401，其余 400）
      */
     @ExceptionHandler(BusinessException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public R<Void> handleBusinessException(BusinessException ex) {
-        return R.fail(ex.getCode(), ex.getMessage());
+    public ResponseEntity<R<Void>> handleBusinessException(BusinessException ex) {
+        HttpStatus status = ex.getCode() == 401 ? HttpStatus.UNAUTHORIZED : HttpStatus.BAD_REQUEST;
+        return ResponseEntity.status(status).body(R.fail(ex.getCode(), ex.getMessage()));
     }
 
     /**

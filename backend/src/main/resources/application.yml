@@ -52,6 +52,16 @@ spring:
           timeout: 3000
           writetimeout: 5000
 
+  # 火山引擎方舟（Ark）大模型 - OpenAI 兼容。
+  ai:
+    openai:
+      base-url: https://ark.cn-beijing.volces.com/api/v3
+      api-key: ${ARK_API_KEY:}
+      chat:
+        options:
+          model: doubao-seed-1-6-flash-250828
+        completions-path: /chat/completions
+
 # JWT 配置
 jwt:
   secret: v9y$B&E)H@McQfTjWnZr4u7x!A%D*G-K

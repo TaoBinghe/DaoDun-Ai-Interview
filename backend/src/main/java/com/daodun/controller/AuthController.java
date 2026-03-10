@@ -15,6 +15,16 @@ public class AuthController {
     private final AuthService authService;
 
     /**
+     * 使用 Refresh Token 换取新的 Access Token
+     * POST /api/auth/refresh
+     */
+    @PostMapping("/refresh")
+    public R<LoginResponse> refresh(@Valid @RequestBody RefreshRequest request) {
+        LoginResponse response = authService.refresh(request.getRefreshToken());
+        return R.ok("刷新成功", response);
+    }
+
+    /**
      * 发送注册验证码
      * POST /api/auth/send-register-code
      */

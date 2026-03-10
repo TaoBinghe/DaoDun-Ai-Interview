@@ -1,9 +1,11 @@
-package com.daodun.service;
+package com.daodun.service.impl;
 
 import com.daodun.common.BusinessException;
 import com.daodun.dto.*;
 import com.daodun.entity.User;
 import com.daodun.repository.UserRepository;
+import com.daodun.service.AuthService;
+import com.daodun.service.EmailService;
 import com.daodun.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -130,6 +132,29 @@ public class AuthServiceImpl implements AuthService {
         // 登录成功后删除验证码
         redisTemplate.delete(LOGIN_CODE_PREFIX + request.getEmail());
         return buildLoginResponse(user, request.isRememberMe());
+    }
+
+    @Override
+    public LoginResponse refresh(String refreshToken) {
+        if (!jwtUtil.isValidRefreshToken(refreshToken)) {
+            throw new BusinessException(401, "Refresh Token 无效或已过期，请重新登录");
+        }
+        Long userId = jwtUtil.getUserIdFromToken(refreshToken);
+        if (userId == null) {
+            throw new BusinessException(401, "Refresh Token 无效或已过期，请重新登录");
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(401, "用户不存在，请重新登录"));
+        checkUserStatus(user);
+        // 只签发新的 Access Token，Refresh Token 保持不变（前端可继续用原 refreshToken 下次刷新）
+        String newAccessToken = jwtUtil.generateAccessToken(user.getId());
+        return LoginResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(refreshToken)
+                .userId(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .build();
     }
 
     // ---- 私有辅助方法 ----
