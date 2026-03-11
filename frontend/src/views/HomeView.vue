@@ -48,7 +48,7 @@ const handleLogout = () => {
           <p>这里是一个简洁大气的示例控制台页面，后续可以在这里添加面试记录、个人能力图谱等功能。</p>
           
           <div class="action-buttons">
-            <el-button type="primary" size="large">开始模拟面试</el-button>
+            <el-button type="primary" size="large" @click="router.push('/interview')">开始模拟面试</el-button>
             <el-button size="large">查看历史记录</el-button>
           </div>
         </div>
