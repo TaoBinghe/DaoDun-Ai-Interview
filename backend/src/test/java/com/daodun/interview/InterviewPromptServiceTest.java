@@ -30,7 +30,7 @@ class InterviewPromptServiceTest {
     @Test
     @DisplayName("buildMessages：空历史时只含 system message")
     void buildMessages_emptyTurns() {
-        List<Map<String, String>> messages = promptService.buildMessages("Java后端", List.of());
+        List<Map<String, String>> messages = promptService.buildMessages("Java后端", List.of(), null);
         assertThat(messages).hasSize(1);
         assertThat(messages.get(0).get("role")).isEqualTo("system");
         assertThat(messages.get(0).get("content")).contains("Java后端");
@@ -40,7 +40,7 @@ class InterviewPromptServiceTest {
     @DisplayName("buildMessages：INTERVIEWER turn 映射为 assistant role")
     void buildMessages_interviewerRole() {
         InterviewTurn t = buildTurn(InterviewTurn.Role.INTERVIEWER, "请介绍一下 JVM 内存模型");
-        List<Map<String, String>> messages = promptService.buildMessages("Java后端", List.of(t));
+        List<Map<String, String>> messages = promptService.buildMessages("Java后端", List.of(t), null);
         assertThat(messages).hasSize(2);
         assertThat(messages.get(1).get("role")).isEqualTo("assistant");
     }
@@ -49,7 +49,7 @@ class InterviewPromptServiceTest {
     @DisplayName("buildMessages：USER turn 映射为 user role")
     void buildMessages_userRole() {
         InterviewTurn t = buildTurn(InterviewTurn.Role.USER, "JVM 分为堆、栈、方法区...");
-        List<Map<String, String>> messages = promptService.buildMessages("Java后端", List.of(t));
+        List<Map<String, String>> messages = promptService.buildMessages("Java后端", List.of(t), null);
         assertThat(messages.get(1).get("role")).isEqualTo("user");
     }
 
@@ -60,9 +60,18 @@ class InterviewPromptServiceTest {
         for (int i = 0; i < 25; i++) {
             turns.add(buildTurn(InterviewTurn.Role.USER, "answer " + i));
         }
-        List<Map<String, String>> messages = promptService.buildMessages("Java后端", turns);
+        List<Map<String, String>> messages = promptService.buildMessages("Java后端", turns, null);
         // system(1) + 最近20条 = 21
         assertThat(messages).hasSize(21);
+    }
+
+    @Test
+    @DisplayName("buildMessages：传入简历文本时写入 system prompt")
+    void buildMessages_withResumeText() {
+        List<Map<String, String>> messages = promptService.buildMessages("Java后端", List.of(), "姓名：张三\n技能：Java");
+        assertThat(messages).hasSize(1);
+        assertThat(messages.get(0).get("content")).contains("候选人简历");
+        assertThat(messages.get(0).get("content")).contains("技能：Java");
     }
 
     // ─── parseLlmResponse ────────────────────────────────────────

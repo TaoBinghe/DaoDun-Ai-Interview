@@ -45,10 +45,11 @@ const handleLogout = () => {
         </template>
         <div class="welcome-content">
           <p>您已成功登录系统。</p>
-          <p>这里是一个简洁大气的示例控制台页面，后续可以在这里添加面试记录、个人能力图谱等功能。</p>
+          <p>上传简历后，AI 面试官会先阅读你的项目经历和技术栈，再进行更有针对性的提问。</p>
           
           <div class="action-buttons">
             <el-button type="primary" size="large" @click="router.push('/interview')">开始模拟面试</el-button>
+            <el-button size="large" @click="router.push('/resume')">简历管理</el-button>
             <el-button size="large">查看历史记录</el-button>
           </div>
         </div>

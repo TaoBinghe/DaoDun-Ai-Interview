@@ -6,10 +6,12 @@ import com.daodun.entity.InterviewSession;
 import com.daodun.entity.InterviewTurn;
 import com.daodun.entity.Position;
 import com.daodun.entity.Question;
+import com.daodun.entity.UserResume;
 import com.daodun.repository.InterviewSessionRepository;
 import com.daodun.repository.InterviewTurnRepository;
 import com.daodun.repository.PositionRepository;
 import com.daodun.repository.QuestionRepository;
+import com.daodun.repository.UserResumeRepository;
 import com.daodun.service.ArkChatService;
 import com.daodun.service.InterviewPromptService;
 import com.daodun.service.InterviewService;
@@ -36,6 +38,7 @@ public class InterviewServiceImpl implements InterviewService {
     private final InterviewTurnRepository turnRepository;
     private final PositionRepository positionRepository;
     private final QuestionRepository questionRepository;
+    private final UserResumeRepository userResumeRepository;
     private final ArkChatService arkChatService;
     private final InterviewPromptService promptService;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -48,13 +51,19 @@ public class InterviewServiceImpl implements InterviewService {
     @Transactional
     public SessionDetailResponse createSession(Long userId, CreateSessionRequest request) {
         Position position = requirePosition(request.getPositionId());
+        UserResume resume = null;
+        if (request.getResumeId() != null) {
+            resume = requireUserResume(userId, request.getResumeId());
+        }
 
-        // 首问：简单难度（difficulty=1）随机抽 1 题
+        // 首轮：固定打招呼 + 自我介绍，不抽题
+        String firstContent = "你好同学，先做个自我介绍吧。";
         Question firstQuestion = drawFirstQuestion(request.getPositionId(), request.getType());
 
         InterviewSession session = InterviewSession.builder()
                 .userId(userId)
                 .positionId(position.getId())
+                .resumeId(resume != null ? resume.getId() : null)
                 .status(InterviewSession.Status.IN_PROGRESS)
                 .currentTurnIndex(1)
                 .lastQuestionId(firstQuestion.getId())
@@ -65,17 +74,17 @@ public class InterviewServiceImpl implements InterviewService {
                 .sessionId(session.getId())
                 .turnIndex(1)
                 .role(InterviewTurn.Role.INTERVIEWER)
-                .messageType(InterviewTurn.MessageType.QUESTION)
-                .questionId(firstQuestion.getId())
-                .content(firstQuestion.getContent())
+                .messageType(InterviewTurn.MessageType.FOLLOW_UP)
+                .questionId(null)
+                .content(firstContent)
                 .build();
         turnRepository.save(firstTurn);
 
-        log.info("[Interview] 创建会话 sessionId={} userId={} positionId={} firstQuestionId={}",
-                session.getId(), userId, position.getId(), firstQuestion.getId());
+        log.info("[Interview] 创建会话 sessionId={} userId={} positionId={} firstContent=自我介绍",
+                session.getId(), userId, position.getId());
 
         List<TurnDto> turns = List.of(toTurnDto(firstTurn));
-        return toDetailResponse(session, position.getName(), turns);
+        return toDetailResponse(session, position.getName(), resume != null ? resume.getFileName() : null, turns);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -91,8 +100,14 @@ public class InterviewServiceImpl implements InterviewService {
         Position position = positionRepository.findById(session.getPositionId()).orElseThrow();
         List<InterviewTurn> turns = turnRepository.findBySessionIdOrderByTurnIndexAsc(sessionId);
         List<TurnDto> turnDtos = turns.stream().map(this::toTurnDto).toList();
+        String resumeFileName = null;
+        if (session.getResumeId() != null) {
+            resumeFileName = userResumeRepository.findById(session.getResumeId())
+                    .map(UserResume::getFileName)
+                    .orElse(null);
+        }
 
-        return toDetailResponse(session, position.getName(), turnDtos);
+        return toDetailResponse(session, position.getName(), resumeFileName, turnDtos);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -137,7 +152,13 @@ public class InterviewServiceImpl implements InterviewService {
         long llmStart = System.currentTimeMillis();
         String rawReply;
         try {
-            List<Map<String, String>> messages = promptService.buildMessages(position.getName(), allTurns);
+            String resumeText = null;
+            if (session.getResumeId() != null) {
+                resumeText = userResumeRepository.findByIdAndUserId(session.getResumeId(), userId)
+                        .map(this::buildResumeContext)
+                        .orElse(null);
+            }
+            List<Map<String, String>> messages = promptService.buildMessages(position.getName(), allTurns, resumeText);
             rawReply = arkChatService.chatWithMessages(messages);
         } catch (Exception e) {
             log.error("[Interview] LLM 调用失败 sessionId={}: {}", sessionId, e.getMessage());
@@ -281,6 +302,28 @@ public class InterviewServiceImpl implements InterviewService {
         }
     }
 
+    private UserResume requireUserResume(Long userId, Long resumeId) {
+        return userResumeRepository.findByIdAndUserId(resumeId, userId)
+                .orElseThrow(() -> new BusinessException("简历不存在或无权限使用"));
+    }
+
+    private String buildResumeContext(UserResume resume) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("【原始简历文本】\n")
+                .append(resume.getResumeText())
+                .append("\n\n");
+        if (resume.getProjectSummary() != null && !resume.getProjectSummary().isBlank()) {
+            sb.append("【结构化-项目经历】\n").append(resume.getProjectSummary()).append("\n\n");
+        }
+        if (resume.getSkillsSummary() != null && !resume.getSkillsSummary().isBlank()) {
+            sb.append("【结构化-技能】\n").append(resume.getSkillsSummary()).append("\n\n");
+        }
+        if (resume.getEducationSummary() != null && !resume.getEducationSummary().isBlank()) {
+            sb.append("【结构化-教育背景】\n").append(resume.getEducationSummary()).append("\n\n");
+        }
+        return sb.toString().trim();
+    }
+
     /** 首问：简单难度（difficulty=1）随机抽 1 题 */
     private Question drawFirstQuestion(Long positionId, Question.QuestionType type) {
         List<Question> pool = type == null
@@ -358,6 +401,7 @@ public class InterviewServiceImpl implements InterviewService {
 
     private SessionDetailResponse toDetailResponse(InterviewSession session,
                                                     String positionName,
+                                                    String resumeFileName,
                                                     List<TurnDto> turns) {
         return SessionDetailResponse.builder()
                 .sessionId(session.getId())
@@ -365,6 +409,8 @@ public class InterviewServiceImpl implements InterviewService {
                 .positionName(positionName)
                 .status(session.getStatus().name())
                 .currentTurnIndex(session.getCurrentTurnIndex())
+                .hasResume(session.getResumeId() != null)
+                .resumeFileName(resumeFileName)
                 .startedAt(session.getStartTime())
                 .endedAt(session.getEndTime())
                 .createTime(session.getCreateTime())

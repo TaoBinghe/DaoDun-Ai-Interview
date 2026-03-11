@@ -17,6 +17,11 @@ const router = createRouter({
       path: '/interview',
       name: 'interview',
       component: () => import('../views/InterviewView.vue')
+    },
+    {
+      path: '/resume',
+      name: 'resume',
+      component: () => import('../views/ResumeView.vue')
     }
   ],
 })

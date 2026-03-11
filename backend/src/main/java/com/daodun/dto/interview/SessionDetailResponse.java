@@ -15,6 +15,8 @@ public class SessionDetailResponse {
     private String positionName;
     private String status;
     private Integer currentTurnIndex;
+    private Boolean hasResume;
+    private String resumeFileName;
     private LocalDateTime startedAt;
     private LocalDateTime endedAt;
     private LocalDateTime createTime;

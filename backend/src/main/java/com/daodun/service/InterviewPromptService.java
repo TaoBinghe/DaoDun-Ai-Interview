@@ -17,9 +17,10 @@ public interface InterviewPromptService {
      *
      * @param positionName 岗位名称
      * @param turns        按 turnIndex 升序排列的所有轮次（包含刚保存的用户 turn）
+     * @param resumeText   候选人简历文本（可为空）
      * @return OpenAI 格式的 messages（含 system message）
      */
-    List<Map<String, String>> buildMessages(String positionName, List<InterviewTurn> turns);
+    List<Map<String, String>> buildMessages(String positionName, List<InterviewTurn> turns, String resumeText);
 
     /**
      * 解析 LLM 返回的 JSON 字符串为 LlmDecision。

@@ -1,171 +1,190 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDark } from '@vueuse/core'
-import { ArrowLeft, Promotion, Warning } from '@element-plus/icons-vue'
+import { ArrowLeft, Promotion } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import request from '../utils/request'
+
+interface PositionItem {
+  id: number
+  name: string
+  description?: string
+}
+
+interface ResumeItem {
+  resumeId: number
+  fileName: string
+  charCount: number
+  pageCount: number
+  previewText: string
+  projects: string[]
+  skills: string[]
+  education: string[]
+  uploadedAt: string
+}
 
 const router = useRouter()
 const isDark = useDark()
 
-// --- 状态变量 ---
 const sessionId = ref<number | null>(null)
-const positionId = ref<number | null>(null)
-const positions = ref<any[]>([])
+const positions = ref<PositionItem[]>([])
+const resumes = ref<ResumeItem[]>([])
 const turns = ref<any[]>([])
 const userInput = ref('')
 const isLoading = ref(false)
 const isEnding = ref(false)
 const chatBody = ref<HTMLElement | null>(null)
 
-// --- API 请求头 ---
-const getHeaders = () => ({
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+const currentStep = ref(1)
+const selectedPositionId = ref<number | null>(null)
+const selectedResumeId = ref<number | null>(null)
+const boundResumeName = ref('')
+
+const selectedPosition = computed(() =>
+  positions.value.find((item) => item.id === selectedPositionId.value)
+)
+const selectedResume = computed(() =>
+  resumes.value.find((item) => item.resumeId === selectedResumeId.value)
+)
+
+onMounted(async () => {
+  await Promise.all([fetchPositions(), fetchResumes()])
 })
 
-/** 若为 401 则跳转登录并返回 true */
-const checkUnauthorized = (res: Response): boolean => {
-  if (res.status === 401) {
-    ElMessage.error('登录已过期，请重新登录')
-    router.push('/login')
-    return true
-  }
-  return false
+const fetchPositions = async () => {
+  const res: any = await request.get('/api/position/list')
+  positions.value = res.data || []
 }
 
-// --- 初始化：获取岗位列表 ---
-onMounted(async () => {
-  const token = localStorage.getItem('accessToken')
-  if (!token) {
-    ElMessage.warning('请先登录')
-    router.push('/login')
+const fetchResumes = async () => {
+  const res: any = await request.get('/api/resume/me')
+  resumes.value = res.data || []
+}
+
+const pickPosition = (id: number) => {
+  selectedPositionId.value = id
+}
+
+const goStepTwo = () => {
+  if (!selectedPositionId.value) {
+    ElMessage.warning('请先选择岗位')
     return
   }
-  try {
-    const res = await fetch('/api/position/list', { headers: getHeaders() })
-    const json = await res.json()
-    if (res.status === 401) {
-      ElMessage.error('登录已过期，请重新登录')
-      router.push('/login')
+  currentStep.value = 2
+}
+
+const backToStepOne = () => {
+  currentStep.value = 1
+}
+
+const chooseResume = (resumeId: number) => {
+  selectedResumeId.value = resumeId
+}
+
+const startInterview = async () => {
+  if (!selectedPositionId.value) {
+    ElMessage.warning('请先选择岗位')
+    return
+  }
+  if (selectedResume.value) {
+    const skillPreview = (selectedResume.value.skills || []).slice(0, 4).join(' / ') || '未识别到明显技能关键词'
+    const projectPreview = (selectedResume.value.projects || []).slice(0, 2).join('；') || '未识别到项目段落'
+    const educationPreview = (selectedResume.value.education || []).slice(0, 2).join('；') || '未识别到教育信息'
+    const previewText = selectedResume.value.previewText || ''
+    try {
+      await ElMessageBox.confirm(
+        `简历：${selectedResume.value.fileName}
+
+页数：${selectedResume.value.pageCount || 0} 页，字数：${selectedResume.value.charCount || 0}
+
+技能提取：${skillPreview}
+项目提取：${projectPreview}
+教育提取：${educationPreview}
+
+预览片段：
+${previewText}
+
+确认后，AI 将按以上解析结果和原始文本进行面试。`,
+        '面试前简历确认',
+        {
+          confirmButtonText: '确认并开始',
+          cancelButtonText: '返回修改',
+          type: 'info'
+        }
+      )
+    } catch {
       return
     }
-    if (json.code === 200) {
-      positions.value = json.data
-    } else {
-      ElMessage.error(json.msg || '获取岗位列表失败')
-    }
-  } catch (err) {
-    console.error(err)
-    ElMessage.error('网络错误，请检查后端是否启动（端口 8081）')
   }
-})
-
-// --- 开始面试 ---
-const startInterview = async (id: number) => {
-  positionId.value = id
   isLoading.value = true
   try {
-    const res = await fetch('/api/interview/sessions', {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({ positionId: id })
-    })
-    const json = await res.json()
-    if (checkUnauthorized(res)) return
-    if (json.code === 200) {
-      sessionId.value = json.data.sessionId
-      turns.value = json.data.turns
-      ElMessage.success('面试开始，祝你表现顺利！')
-      scrollToBottom()
-    } else {
-      ElMessage.error(json.msg || '创建面试失败')
+    const payload: any = { positionId: selectedPositionId.value }
+    if (selectedResumeId.value) {
+      payload.resumeId = selectedResumeId.value
     }
-  } catch (err) {
-    ElMessage.error('系统异常')
+    const res: any = await request.post('/api/interview/sessions', payload)
+    sessionId.value = res.data.sessionId
+    turns.value = res.data.turns || []
+    boundResumeName.value = res.data.resumeFileName || selectedResume.value?.fileName || ''
+    currentStep.value = 3
+    ElMessage.success('面试开始，祝你表现顺利！')
+    scrollToBottom()
   } finally {
     isLoading.value = false
   }
 }
 
-// --- 发送回答 ---
 const sendMessage = async () => {
   if (!userInput.value.trim() || isLoading.value || !sessionId.value) return
-
   const content = userInput.value.trim()
   userInput.value = ''
   isLoading.value = true
 
-  // 1. 立即展示用户话语
   const clientTurnId = crypto.randomUUID()
-  const userTurn = {
+  const tempUserTurn = {
     role: 'USER',
-    content: content,
+    content,
     createTime: new Date().toISOString()
   }
-  turns.value.push(userTurn)
+  turns.value.push(tempUserTurn)
   scrollToBottom()
 
   try {
-    // 2. 发送到后端
-    const res = await fetch(`/api/interview/sessions/${sessionId.value}/turns`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({ content, clientTurnId })
-    })
-    const json = await res.json()
-    if (checkUnauthorized(res)) return
-    if (json.code === 200) {
-      // 3. 更新面试官回复
-      // 后端 postTurn 返回了 userTurn 和 interviewerTurn，我们用后端的覆盖前端模拟的
-      const idx = turns.value.indexOf(userTurn)
-      if (idx !== -1) turns.value.splice(idx, 1)
-      
-      turns.value.push(json.data.userTurn)
-      turns.value.push(json.data.interviewerTurn)
-      scrollToBottom()
-    } else {
-      ElMessage.error(json.msg || '发送失败')
-    }
-  } catch (err) {
-    ElMessage.error('网络连接失败')
+    const res: any = await request.post(
+      `/api/interview/sessions/${sessionId.value}/turns`,
+      { content, clientTurnId },
+      { timeout: 60000 }
+    )
+    const index = turns.value.indexOf(tempUserTurn)
+    if (index !== -1) turns.value.splice(index, 1)
+    turns.value.push(res.data.userTurn)
+    turns.value.push(res.data.interviewerTurn)
+    scrollToBottom()
   } finally {
     isLoading.value = false
   }
 }
 
-// --- 结束面试 ---
 const handleComplete = async () => {
   if (!sessionId.value) return
-  
   try {
     await ElMessageBox.confirm('确定要结束本次模拟面试吗？', '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning'
     })
-    
     isEnding.value = true
-    const res = await fetch(`/api/interview/sessions/${sessionId.value}/complete`, {
-      method: 'PATCH',
-      headers: getHeaders()
-    })
-    const json = await res.json()
-    if (checkUnauthorized(res)) return
-    if (json.code === 200) {
-      ElMessage.success('面试已顺利完成！')
-      router.push('/')
-    } else {
-      ElMessage.error(json.msg || '结束面试失败')
-    }
-  } catch (err) {
+    await request.patch(`/api/interview/sessions/${sessionId.value}/complete`)
+    ElMessage.success('面试已顺利完成！')
+    router.push('/')
+  } catch {
     // 用户取消
   } finally {
     isEnding.value = false
   }
 }
 
-// --- 辅助方法 ---
 const scrollToBottom = () => {
   nextTick(() => {
     if (chatBody.value) {
@@ -183,66 +202,106 @@ const formatTime = (timeStr: string) => {
 
 <template>
   <div class="interview-page" :class="{ 'is-dark': isDark }">
-    <!-- 头部区域 -->
     <header class="interview-header">
       <div class="header-left">
         <el-button :icon="ArrowLeft" circle @click="router.push('/')" />
         <h3 v-if="sessionId">正在进行模拟面试</h3>
-        <h3 v-else>选择面试岗位</h3>
+        <h3 v-else>模拟面试准备</h3>
       </div>
       <div class="header-right" v-if="sessionId">
+        <el-tag v-if="boundResumeName" type="success">已绑定简历：{{ boundResumeName }}</el-tag>
         <el-button type="danger" plain @click="handleComplete" :loading="isEnding">结束面试</el-button>
       </div>
     </header>
 
-    <!-- 主体区域 -->
     <main class="interview-main">
-      <!-- 岗位选择列表 (未开始时显示) -->
       <div v-if="!sessionId" class="selection-container">
-        <el-empty description="请选择一个岗位开始面试" v-if="positions.length === 0" />
-        <div class="position-grid">
-          <el-card 
-            v-for="p in positions" 
-            :key="p.id" 
-            class="position-card" 
-            shadow="hover"
-            @click="startInterview(p.id)"
-          >
-            <div class="pos-info">
-              <h4>{{ p.name }}</h4>
-              <p>{{ p.description || '暂无详细描述' }}</p>
-            </div>
-            <div class="pos-action">
-              <el-button type="primary" link>开始面试</el-button>
-            </div>
-          </el-card>
+        <el-steps :active="currentStep" simple class="stepper">
+          <el-step title="选择岗位" />
+          <el-step title="选择简历（可跳过）" />
+          <el-step title="开始面试" />
+        </el-steps>
+
+        <div v-if="currentStep === 1">
+          <div class="selection-title">Step 1：选择面试岗位</div>
+          <el-empty description="暂无岗位数据" v-if="positions.length === 0" />
+          <div class="position-grid">
+            <el-card
+              v-for="p in positions"
+              :key="p.id"
+              class="position-card"
+              :class="{ selected: selectedPositionId === p.id }"
+              shadow="hover"
+              @click="pickPosition(p.id)"
+            >
+              <div class="pos-info">
+                <h4>{{ p.name }}</h4>
+                <p>{{ p.description || '暂无详细描述' }}</p>
+              </div>
+            </el-card>
+          </div>
+          <div class="actions">
+            <el-button type="primary" @click="goStepTwo">下一步：选择简历</el-button>
+          </div>
+        </div>
+
+        <div v-else>
+          <div class="selection-title">Step 2：选择简历（可跳过）</div>
+          <el-alert
+            type="info"
+            :closable="false"
+            show-icon
+            title="绑定简历后，AI 会优先围绕你的项目经历和技术栈进行追问。"
+          />
+          <div v-if="resumes.length === 0" class="empty-resume">
+            <el-empty description="你还没有上传简历，先去简历管理页上传也可以直接跳过。">
+              <el-button @click="router.push('/resume')">去上传简历</el-button>
+            </el-empty>
+          </div>
+          <div v-else class="resume-grid">
+            <el-card
+              v-for="item in resumes"
+              :key="item.resumeId"
+              class="resume-card"
+              :class="{ selected: selectedResumeId === item.resumeId }"
+              shadow="hover"
+              @click="chooseResume(item.resumeId)"
+            >
+              <div class="resume-name">{{ item.fileName }}</div>
+              <div class="resume-sub">
+                {{ item.pageCount || 0 }} 页 · 字数 {{ item.charCount }} · {{ item.uploadedAt?.replace('T', ' ') }}
+              </div>
+              <p>{{ item.previewText }}</p>
+            </el-card>
+          </div>
+          <div class="actions">
+            <el-button @click="backToStepOne">上一步</el-button>
+            <el-button @click="selectedResumeId = null">跳过简历</el-button>
+            <el-button type="primary" :loading="isLoading" @click="startInterview">
+              开始面试
+            </el-button>
+          </div>
         </div>
       </div>
 
-      <!-- 聊天对话窗口 (面试开始后显示) -->
       <div v-else class="chat-container">
         <div class="chat-body" ref="chatBody">
-          <div 
-            v-for="(turn, index) in turns" 
-            :key="index" 
+          <div
+            v-for="(turn, index) in turns"
+            :key="index"
             :class="['message-row', turn.role === 'INTERVIEWER' ? 'left' : 'right']"
           >
-            <el-avatar 
-              :size="40" 
-              class="avatar"
-              :src="turn.role === 'INTERVIEWER' ? '/interviewer-avatar.png' : ''"
-            >
+            <el-avatar :size="40" class="avatar">
               {{ turn.role === 'INTERVIEWER' ? 'AI' : '我' }}
             </el-avatar>
             <div class="message-content">
               <div class="message-bubble">
-                <p style="white-space: pre-wrap;">{{ turn.content }}</p>
+                <p class="bubble-text">{{ turn.content }}</p>
               </div>
               <span class="message-time">{{ formatTime(turn.createTime) }}</span>
             </div>
           </div>
-          
-          <!-- 加载状态提示 -->
+
           <div v-if="isLoading" class="message-row left">
             <el-avatar :size="40" class="avatar">AI</el-avatar>
             <div class="message-content">
@@ -253,7 +312,6 @@ const formatTime = (timeStr: string) => {
           </div>
         </div>
 
-        <!-- 底部输入框 -->
         <footer class="chat-footer">
           <div class="input-wrapper">
             <el-input
@@ -265,18 +323,12 @@ const formatTime = (timeStr: string) => {
               :disabled="isLoading"
               @keydown.ctrl.enter="sendMessage"
             />
-            <el-button 
-              type="primary" 
-              :icon="Promotion" 
-              class="send-btn"
-              :loading="isLoading"
-              @click="sendMessage"
-            >
+            <el-button type="primary" :icon="Promotion" class="send-btn" :loading="isLoading" @click="sendMessage">
               发送
             </el-button>
           </div>
           <div class="footer-tip">
-             AI 面试官会根据你的回答进行追问或切换题目，请认真作答。
+            AI 面试官会结合岗位和（可选）简历内容动态追问，请认真作答。
           </div>
         </footer>
       </div>
@@ -305,7 +357,7 @@ const formatTime = (timeStr: string) => {
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05);
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
   z-index: 10;
 }
 
@@ -318,6 +370,12 @@ const formatTime = (timeStr: string) => {
   display: flex;
   align-items: center;
   gap: 15px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .header-left h3 {
@@ -333,31 +391,52 @@ const formatTime = (timeStr: string) => {
   padding: 20px;
 }
 
-/* 岗位选择卡片列表 */
 .selection-container {
   width: 100%;
-  max-width: 900px;
+  max-width: 980px;
+  overflow-y: auto;
 }
 
-.position-grid {
+.stepper {
+  margin-bottom: 16px;
+  border-radius: 10px;
+}
+
+.selection-title {
+  margin: 10px 0 14px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.position-grid,
+.resume-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
+  gap: 16px;
+  margin-top: 14px;
 }
 
-.position-card {
+.position-card,
+.resume-card {
   cursor: pointer;
-  transition: transform 0.2s;
-  border: none;
   border-radius: 12px;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
 }
 
-.position-card:hover {
-  transform: translateY(-5px);
+.position-card.selected,
+.resume-card.selected {
+  border-color: #10b981;
+  box-shadow: 0 0 0 1px #10b981 inset;
+}
+
+.position-card:hover,
+.resume-card:hover {
+  transform: translateY(-3px);
 }
 
 .pos-info h4 {
-  margin: 0 0 10px 0;
+  margin: 0 0 10px;
   color: #10b981;
 }
 
@@ -367,11 +446,43 @@ const formatTime = (timeStr: string) => {
   line-height: 1.5;
 }
 
-.is-dark .pos-info p {
+.resume-name {
+  font-weight: 600;
+}
+
+.resume-sub {
+  margin-top: 4px;
+  color: #909399;
+  font-size: 13px;
+}
+
+.resume-card p {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: #606266;
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.is-dark .pos-info p,
+.is-dark .resume-card p {
   color: #9ca3af;
 }
 
-/* 聊天窗口布局 */
+.actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.empty-resume {
+  margin-top: 20px;
+}
+
 .chat-container {
   width: 100%;
   max-width: 1000px;
@@ -380,7 +491,7 @@ const formatTime = (timeStr: string) => {
   display: flex;
   flex-direction: column;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   overflow: hidden;
 }
 
@@ -436,6 +547,11 @@ const formatTime = (timeStr: string) => {
   word-break: break-word;
 }
 
+.bubble-text {
+  white-space: pre-wrap;
+  margin: 0;
+}
+
 .left .message-bubble {
   background-color: #f4f4f5;
   border-bottom-left-radius: 2px;
@@ -457,7 +573,6 @@ const formatTime = (timeStr: string) => {
   color: #909399;
 }
 
-/* 打字动画效果 */
 .typing span {
   animation: blink 1.4s infinite both;
   font-size: 24px;
@@ -465,16 +580,26 @@ const formatTime = (timeStr: string) => {
   display: inline-block;
 }
 
-.typing span:nth-child(2) { animation-delay: .2s; }
-.typing span:nth-child(3) { animation-delay: .4s; }
-
-@keyframes blink {
-  0% { opacity: .2; }
-  20% { opacity: 1; }
-  100% { opacity: .2; }
+.typing span:nth-child(2) {
+  animation-delay: 0.2s;
 }
 
-/* 底部输入框 */
+.typing span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes blink {
+  0% {
+    opacity: 0.2;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+
 .chat-footer {
   padding: 20px;
   border-top: 1px solid #ebeef5;

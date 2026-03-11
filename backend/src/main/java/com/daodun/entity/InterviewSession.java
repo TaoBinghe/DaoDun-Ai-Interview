@@ -33,6 +33,10 @@ public class InterviewSession {
     @Column(name = "position_id", nullable = false)
     private Long positionId;
 
+    /** 绑定的简历 ID（可空，不绑定则按通用题库面试） */
+    @Column(name = "resume_id")
+    private Long resumeId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
