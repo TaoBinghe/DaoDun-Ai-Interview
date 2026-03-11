@@ -3,6 +3,7 @@ package com.daodun.common;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -35,6 +36,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<R<Void>> handleBusinessException(BusinessException ex) {
         HttpStatus status = ex.getCode() == 401 ? HttpStatus.UNAUTHORIZED : HttpStatus.BAD_REQUEST;
         return ResponseEntity.status(status).body(R.fail(ex.getCode(), ex.getMessage()));
+    }
+
+    /**
+     * 处理乐观锁并发冲突（并发回复同一会话时触发）
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public R<Void> handleOptimisticLock(ObjectOptimisticLockingFailureException ex) {
+        log.warn("乐观锁冲突: {}", ex.getMessage());
+        return R.fail(409, "操作冲突，请稍后重试");
     }
 
     /**

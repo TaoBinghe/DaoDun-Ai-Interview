@@ -13,12 +13,24 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "interview_turns")
+@Table(name = "interview_turns",
+        indexes = @Index(name = "idx_turns_session_index", columnList = "session_id, turn_index"),
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uq_turns_session_index", columnNames = {"session_id", "turn_index"}),
+                @UniqueConstraint(name = "uq_turns_session_client_turn", columnNames = {"session_id", "client_turn_id"})
+        })
 public class InterviewTurn {
 
     public enum Role {
         INTERVIEWER,
         USER
+    }
+
+    /** 消息类型：新题目 / 追问 / 候选人回答 */
+    public enum MessageType {
+        QUESTION,
+        FOLLOW_UP,
+        ANSWER
     }
 
     @Id
@@ -38,8 +50,20 @@ public class InterviewTurn {
     @Column(nullable = false, length = 20)
     private Role role;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "message_type", length = 20)
+    private MessageType messageType;
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
+
+    /** 模型响应耗时（毫秒），仅 INTERVIEWER 类型的 turn 有值 */
+    @Column(name = "latency_ms")
+    private Long latencyMs;
+
+    /** 前端幂等键，防止重复提交，(session_id, client_turn_id) 唯一 */
+    @Column(name = "client_turn_id", length = 64)
+    private String clientTurnId;
 
     @Column(name = "create_time", updatable = false)
     private LocalDateTime createTime;
