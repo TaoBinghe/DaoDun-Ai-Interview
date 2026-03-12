@@ -1,9 +1,11 @@
 package com.daodun.service.impl;
 
 import com.daodun.common.BusinessException;
+import com.daodun.config.RagProperties;
 import com.daodun.dto.interview.*;
 import com.daodun.entity.InterviewSession;
 import com.daodun.entity.InterviewTurn;
+import com.daodun.entity.KnowledgeChunk;
 import com.daodun.entity.Position;
 import com.daodun.entity.Question;
 import com.daodun.entity.UserResume;
@@ -15,6 +17,7 @@ import com.daodun.repository.UserResumeRepository;
 import com.daodun.service.ArkChatService;
 import com.daodun.service.InterviewPromptService;
 import com.daodun.service.InterviewService;
+import com.daodun.service.KnowledgeRetrievalService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -41,6 +44,8 @@ public class InterviewServiceImpl implements InterviewService {
     private final UserResumeRepository userResumeRepository;
     private final ArkChatService arkChatService;
     private final InterviewPromptService promptService;
+    private final KnowledgeRetrievalService knowledgeRetrievalService;
+    private final RagProperties ragProperties;
     private final SecureRandom secureRandom = new SecureRandom();
 
     // ─────────────────────────────────────────────────────────────
@@ -148,7 +153,7 @@ public class InterviewServiceImpl implements InterviewService {
         // 3. 获取岗位名称（用于 Prompt）
         Position position = positionRepository.findById(session.getPositionId()).orElseThrow();
 
-        // 4. 调 LLM，记录耗时
+        // 4. 调 LLM，记录耗时（含 RAG 知识检索）
         long llmStart = System.currentTimeMillis();
         String rawReply;
         try {
@@ -158,7 +163,14 @@ public class InterviewServiceImpl implements InterviewService {
                         .map(this::buildResumeContext)
                         .orElse(null);
             }
-            List<Map<String, String>> messages = promptService.buildMessages(position.getName(), allTurns, resumeText);
+
+            List<KnowledgeChunk> knowledgeContext = List.of();
+            if (ragProperties.isEnabled()) {
+                knowledgeContext = retrieveKnowledge(position.getName(), request.getContent(), allTurns);
+            }
+
+            List<Map<String, String>> messages = promptService.buildMessages(
+                    position.getName(), allTurns, resumeText, knowledgeContext);
             rawReply = arkChatService.chatWithMessages(messages);
         } catch (Exception e) {
             log.error("[Interview] LLM 调用失败 sessionId={}: {}", sessionId, e.getMessage());
@@ -322,6 +334,52 @@ public class InterviewServiceImpl implements InterviewService {
             sb.append("【结构化-教育背景】\n").append(resume.getEducationSummary()).append("\n\n");
         }
         return sb.toString().trim();
+    }
+
+    /**
+     * 构造 RAG 检索上下文：从最近面试轮次中提取查询文本和关键词，调用检索服务。
+     */
+    private List<KnowledgeChunk> retrieveKnowledge(String positionName, String userAnswer,
+                                                   List<InterviewTurn> allTurns) {
+        try {
+            String lastQuestion = "";
+            for (int i = allTurns.size() - 1; i >= 0; i--) {
+                InterviewTurn t = allTurns.get(i);
+                if (t.getRole() == InterviewTurn.Role.INTERVIEWER) {
+                    lastQuestion = t.getContent();
+                    break;
+                }
+            }
+            String queryText = lastQuestion + " " + (userAnswer != null ? userAnswer : "");
+
+            List<String> keywords = extractTechKeywords(queryText);
+
+            return knowledgeRetrievalService.retrieve(positionName, queryText, keywords);
+        } catch (Exception e) {
+            log.warn("[Interview] RAG 检索异常，降级为无知识库模式: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    private List<String> extractTechKeywords(String text) {
+        if (text == null || text.isBlank()) return List.of();
+        String[] techTerms = {
+                "HashMap", "HashTable", "ConcurrentHashMap", "JVM", "JDK", "JRE",
+                "Spring", "IOC", "AOP", "MVCC", "MySQL", "Redis",
+                "线程", "并发", "锁", "事务", "索引", "GC", "垃圾回收",
+                "反射", "泛型", "注解", "序列化", "String", "Integer",
+                "BigDecimal", "double", "equals", "hashCode", "接口", "抽象类",
+                "Stream", "虚拟线程", "Java 21", "Protobuf", "RPC",
+                "深拷贝", "浅拷贝", "异常", "try", "catch", "finally",
+                "Vue", "TypeScript", "浏览器", "性能优化", "渲染", "组件"
+        };
+        List<String> found = new ArrayList<>();
+        for (String term : techTerms) {
+            if (text.contains(term)) {
+                found.add(term);
+            }
+        }
+        return found.isEmpty() ? List.of(text.substring(0, Math.min(50, text.length()))) : found;
     }
 
     /** 首问：简单难度（difficulty=1）随机抽 1 题 */

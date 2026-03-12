@@ -1,7 +1,9 @@
 package com.daodun.service.impl;
 
+import com.daodun.config.RagProperties;
 import com.daodun.dto.interview.LlmDecision;
 import com.daodun.entity.InterviewTurn;
+import com.daodun.entity.KnowledgeChunk;
 import com.daodun.service.InterviewPromptService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,7 @@ import java.util.Map;
 public class InterviewPromptServiceImpl implements InterviewPromptService {
 
     private final ObjectMapper objectMapper;
+    private final RagProperties ragProperties;
 
     /**
      * 系统提示词模板。LLM 必须以 JSON 格式输出，后端按 action 字段驱动选题逻辑。
@@ -86,11 +89,17 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
 
     @Override
     public List<Map<String, String>> buildMessages(String positionName, List<InterviewTurn> turns, String resumeText) {
+        return buildMessages(positionName, turns, resumeText, null);
+    }
+
+    @Override
+    public List<Map<String, String>> buildMessages(String positionName, List<InterviewTurn> turns,
+                                                   String resumeText, List<KnowledgeChunk> knowledgeContext) {
         List<Map<String, String>> messages = new ArrayList<>();
 
-        // system message：面试官角色 + 输出规范
         int turnCount = turns.size();
         String systemContent = String.format(SYSTEM_PROMPT_TEMPLATE, positionName, turnCount);
+
         if (resumeText != null && !resumeText.isBlank()) {
             systemContent = systemContent + "\n\n"
                     + "【候选人简历（请重点参考）】\n"
@@ -98,9 +107,13 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
                     + "\n【/候选人简历】\n"
                     + "请优先围绕简历中的项目经历、技术栈进行深挖追问，挖掘真实能力。";
         }
+
+        if (knowledgeContext != null && !knowledgeContext.isEmpty()) {
+            systemContent = systemContent + "\n\n" + buildKnowledgeBlock(knowledgeContext);
+        }
+
         messages.add(buildMessage("system", systemContent));
 
-        // 历史轮次：截取最近 20 轮，防止超出上下文窗口
         List<InterviewTurn> recent = turns.size() > 20
                 ? turns.subList(turns.size() - 20, turns.size())
                 : turns;
@@ -111,6 +124,44 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
         }
 
         return messages;
+    }
+
+    private String buildKnowledgeBlock(List<KnowledgeChunk> chunks) {
+        int maxChars = ragProperties.getPrompt().getMaxChars();
+        StringBuilder sb = new StringBuilder();
+        sb.append("【知识库参考（用于追问与评判，禁止逐字复读）】\n");
+
+        for (KnowledgeChunk chunk : chunks) {
+            StringBuilder entry = new StringBuilder();
+            entry.append("▸ 考点：").append(chunk.getTitle()).append("\n");
+            if (chunk.getAnswerKeyPoints() != null) {
+                String points = chunk.getAnswerKeyPoints();
+                if (points.length() > 300) points = points.substring(0, 300) + "…";
+                entry.append("  标准要点：").append(points).append("\n");
+            }
+            if (chunk.getFollowUps() != null) {
+                String followUps = chunk.getFollowUps();
+                if (followUps.length() > 200) followUps = followUps.substring(0, 200) + "…";
+                entry.append("  可追问方向：").append(followUps).append("\n");
+            }
+            if (chunk.getScoringPoints() != null) {
+                String scoring = chunk.getScoringPoints();
+                if (scoring.length() > 200) scoring = scoring.substring(0, 200) + "…";
+                entry.append("  评分观察点：").append(scoring).append("\n");
+            }
+            if (chunk.getPitfalls() != null) {
+                String pitfalls = chunk.getPitfalls();
+                if (pitfalls.length() > 150) pitfalls = pitfalls.substring(0, 150) + "…";
+                entry.append("  常见错误：").append(pitfalls).append("\n");
+            }
+
+            if (sb.length() + entry.length() > maxChars) break;
+            sb.append(entry);
+        }
+
+        sb.append("【/知识库参考】\n");
+        sb.append("以上知识仅供你判断候选人回答质量和决定追问方向，不要直接告诉候选人标准答案。");
+        return sb.toString();
     }
 
     @Override
