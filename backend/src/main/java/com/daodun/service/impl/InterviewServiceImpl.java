@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -122,6 +123,12 @@ public class InterviewServiceImpl implements InterviewService {
     @Override
     @Transactional
     public PostTurnResponse postTurn(Long userId, Long sessionId, PostTurnRequest request) {
+        return postTurnStreaming(userId, sessionId, request, delta -> {});
+    }
+
+    @Override
+    @Transactional
+    public PostTurnResponse postTurnStreaming(Long userId, Long sessionId, PostTurnRequest request, Consumer<String> onDelta) {
         InterviewSession session = requireSession(sessionId);
         requireOwner(session, userId);
         requireInProgress(session);
@@ -171,7 +178,7 @@ public class InterviewServiceImpl implements InterviewService {
 
             List<Map<String, String>> messages = promptService.buildMessages(
                     position.getName(), allTurns, resumeText, knowledgeContext);
-            rawReply = arkChatService.chatWithMessages(messages);
+            rawReply = arkChatService.chatWithMessagesStream(messages, onDelta != null ? onDelta : delta -> {});
         } catch (Exception e) {
             log.error("[Interview] LLM 调用失败 sessionId={}: {}", sessionId, e.getMessage());
             throw new BusinessException(500, "AI 面试官暂时无响应，请稍后重试");

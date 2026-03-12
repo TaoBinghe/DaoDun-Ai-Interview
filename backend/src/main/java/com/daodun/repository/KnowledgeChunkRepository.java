@@ -57,4 +57,11 @@ public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, 
             WHERE id = :chunkId
             """, nativeQuery = true)
     void updateEmbedding(@Param("chunkId") Long chunkId, @Param("embedding") String embedding);
+
+    /**
+     * 清空所有 chunk 的 embedding，便于重新生成向量。
+     */
+    @Modifying
+    @Query(value = "UPDATE knowledge_chunks SET embedding = NULL", nativeQuery = true)
+    int clearAllEmbeddings();
 }

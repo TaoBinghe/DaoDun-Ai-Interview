@@ -22,6 +22,11 @@ const router = createRouter({
       path: '/resume',
       name: 'resume',
       component: () => import('../views/ResumeView.vue')
+    },
+    {
+      path: '/knowledge-verify',
+      name: 'knowledgeVerify',
+      component: () => import('../views/KnowledgeVerifyView.vue')
     }
   ],
 })

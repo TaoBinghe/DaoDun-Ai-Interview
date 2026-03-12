@@ -70,10 +70,10 @@ public class KnowledgeChunk {
     private Integer sourceOrder;
 
     /**
-     * pgvector embedding 向量，以 float[] 形式持久化。
-     * JPA 层存储为 string，实际读写由 native query 操作向量列。
+     * pgvector embedding 向量；仅通过 {@link com.daodun.repository.KnowledgeChunkRepository#updateEmbedding} 写入。
+     * 设为 insertable=false, updatable=false 避免 JPA 用 varchar 绑定导致类型错误。
      */
-    @Column(name = "embedding", columnDefinition = "vector")
+    @Column(name = "embedding", columnDefinition = "vector", insertable = false, updatable = false)
     private String embedding;
 
     @Column(name = "create_time", updatable = false)

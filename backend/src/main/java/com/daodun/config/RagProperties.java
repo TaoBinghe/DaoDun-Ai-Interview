@@ -18,8 +18,15 @@ public class RagProperties {
 
     @Data
     public static class Embedding {
-        private String model = "doubao-embedding-large-text-240915";
+        /** 火山方舟：推理接入点 ID (ep-xxxxx)。文本向量化接入点或（仅文本时）多模态接入点均可。 */
+        private String model = "";
         private int dimensions = 1024;
+        /** 为 true 时使用 /embeddings/multimodal 接口，input 仅传 type=text（适用于仅有多模态接入点的情况）。 */
+        private boolean useMultimodalEndpoint = false;
+
+        public boolean getUseMultimodalEndpoint() {
+            return useMultimodalEndpoint;
+        }
     }
 
     @Data

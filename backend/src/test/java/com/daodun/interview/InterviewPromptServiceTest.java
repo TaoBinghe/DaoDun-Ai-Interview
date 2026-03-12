@@ -3,6 +3,7 @@ package com.daodun.interview;
 import com.daodun.dto.interview.LlmDecision;
 import com.daodun.entity.InterviewTurn;
 import com.daodun.service.impl.InterviewPromptServiceImpl;
+import com.daodun.config.RagProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,7 +23,8 @@ class InterviewPromptServiceTest {
 
     @BeforeEach
     void setUp() {
-        promptService = new InterviewPromptServiceImpl(new ObjectMapper());
+        RagProperties ragProperties = new RagProperties();
+        promptService = new InterviewPromptServiceImpl(new ObjectMapper(), ragProperties);
     }
 
     // ─── buildMessages ───────────────────────────────────────────

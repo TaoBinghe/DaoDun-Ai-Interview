@@ -50,6 +50,7 @@ const handleLogout = () => {
           <div class="action-buttons">
             <el-button type="primary" size="large" @click="router.push('/interview')">开始模拟面试</el-button>
             <el-button size="large" @click="router.push('/resume')">简历管理</el-button>
+            <el-button size="large" @click="router.push('/knowledge-verify')">知识库验证</el-button>
             <el-button size="large">查看历史记录</el-button>
           </div>
         </div>

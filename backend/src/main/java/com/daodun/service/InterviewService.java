@@ -7,6 +7,7 @@ import com.daodun.dto.interview.SessionDetailResponse;
 import com.daodun.dto.interview.SessionSummaryResponse;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * 面试会话核心业务接口。
@@ -32,6 +33,11 @@ public interface InterviewService {
      * 仅 IN_PROGRESS 状态的会话可接受回复。
      */
     PostTurnResponse postTurn(Long userId, Long sessionId, PostTurnRequest request);
+
+    /**
+     * 提交用户回答并流式返回面试官文本增量。
+     */
+    PostTurnResponse postTurnStreaming(Long userId, Long sessionId, PostTurnRequest request, Consumer<String> onDelta);
 
     /**
      * 结束面试会话（状态机：IN_PROGRESS -> COMPLETED）。

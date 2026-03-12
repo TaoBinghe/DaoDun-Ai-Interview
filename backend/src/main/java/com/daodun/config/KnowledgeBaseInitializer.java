@@ -72,6 +72,9 @@ public class KnowledgeBaseInitializer implements CommandLineRunner {
 
             try {
                 List<float[]> embeddings = embeddingService.embedBatch(texts);
+                if (embeddings.size() != batch.size()) {
+                    log.warn("[KnowledgeInit] embedding 数量不匹配: batchSize={}, embeddingSize={}", batch.size(), embeddings.size());
+                }
                 for (int j = 0; j < embeddings.size() && j < batch.size(); j++) {
                     String vecStr = EmbeddingService.toVectorString(embeddings.get(j));
                     chunkRepository.updateEmbedding(batch.get(j).getId(), vecStr);

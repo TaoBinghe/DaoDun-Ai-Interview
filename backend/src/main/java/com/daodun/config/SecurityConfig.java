@@ -43,6 +43,10 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // 认证相关接口全部放行
                 .requestMatchers("/api/auth/**").permitAll()
+                // WebSocket 握手由自定义握手拦截器校验 token
+                .requestMatchers("/ws/**").permitAll()
+                // 语音 TTS 诊断接口（无需登录，便于排查配置）
+                .requestMatchers("/api/voice/diagnostics/**").permitAll()
                 // 其他所有接口需要认证
                 .anyRequest().authenticated()
             )

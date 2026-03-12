@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDark } from '@vueuse/core'
 import { ArrowLeft, Promotion } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '../utils/request'
+import VoiceControls from '../components/VoiceControls.vue'
+import SubtitleDisplay from '../components/SubtitleDisplay.vue'
+import { PcmRecorder, playBase64Audio } from '../utils/audioUtils'
+import { VoiceWebSocketClient, type VoiceServerMessage } from '../services/voiceWebSocket'
 
 interface PositionItem {
   id: number
@@ -35,6 +39,11 @@ const userInput = ref('')
 const isLoading = ref(false)
 const isEnding = ref(false)
 const chatBody = ref<HTMLElement | null>(null)
+const voiceMode = ref<'voice' | 'text'>('voice')
+const subtitleText = ref('')
+const isVoiceConnecting = ref(false)
+const isRecording = ref(false)
+const pendingInterviewerText = ref('')
 
 const currentStep = ref(1)
 const selectedPositionId = ref<number | null>(null)
@@ -47,6 +56,29 @@ const selectedPosition = computed(() =>
 const selectedResume = computed(() =>
   resumes.value.find((item) => item.resumeId === selectedResumeId.value)
 )
+
+const audioRecorder = new PcmRecorder()
+const voiceWs = new VoiceWebSocketClient()
+
+const appendTurnIfNeeded = (role: 'USER' | 'INTERVIEWER', content: string) => {
+  const normalized = content.trim()
+  if (!normalized) return false
+  const lastTurn = turns.value[turns.value.length - 1]
+  if (
+    lastTurn &&
+    lastTurn.role === role &&
+    typeof lastTurn.content === 'string' &&
+    lastTurn.content.trim() === normalized
+  ) {
+    return false
+  }
+  turns.value.push({
+    role,
+    content: normalized,
+    createTime: new Date().toISOString()
+  })
+  return true
+}
 
 onMounted(async () => {
   await Promise.all([fetchPositions(), fetchResumes()])
@@ -128,6 +160,7 @@ ${previewText}
     turns.value = res.data.turns || []
     boundResumeName.value = res.data.resumeFileName || selectedResume.value?.fileName || ''
     currentStep.value = 3
+    await setupVoiceChannel()
     ElMessage.success('面试开始，祝你表现顺利！')
     scrollToBottom()
   } finally {
@@ -135,10 +168,157 @@ ${previewText}
   }
 }
 
+const setupVoiceChannel = async () => {
+  if (voiceWs.isOpen()) {
+    isVoiceConnecting.value = false
+    return true
+  }
+  try {
+    isVoiceConnecting.value = true
+    await voiceWs.connect(onVoiceMessage, () => {
+      isRecording.value = false
+      isVoiceConnecting.value = false
+      isLoading.value = false
+      pendingInterviewerText.value = ''
+    })
+    isVoiceConnecting.value = false
+    return true
+  } catch (e: any) {
+    isVoiceConnecting.value = false
+    ElMessage.warning(e?.message || '语音通道连接失败，已降级文本模式')
+    voiceMode.value = 'text'
+    return false
+  }
+}
+
+const onVoiceMessage = async (msg: VoiceServerMessage) => {
+  if (msg.type === 'connected') {
+    isVoiceConnecting.value = false
+    if (sessionId.value && turns.value.some((t: any) => t.role === 'INTERVIEWER')) {
+      try {
+        voiceWs.sendPlayWelcome(sessionId.value)
+      } catch {
+        // 忽略
+      }
+    }
+    return
+  }
+  if (msg.type === 'error') {
+    isLoading.value = false
+    pendingInterviewerText.value = ''
+    ElMessage.error(msg.content || '语音服务异常')
+    return
+  }
+  if (msg.type === 'user_transcript' && msg.content) {
+    isLoading.value = true
+    appendTurnIfNeeded('USER', msg.content)
+    scrollToBottom()
+    return
+  }
+  if (msg.type === 'interviewer_text_delta' && msg.content) {
+    pendingInterviewerText.value += msg.content
+    scrollToBottom()
+    return
+  }
+  if (msg.type === 'interviewer_text' && msg.content) {
+    pendingInterviewerText.value = ''
+    isLoading.value = false
+    appendTurnIfNeeded('INTERVIEWER', msg.content)
+    subtitleText.value = msg.content
+    scrollToBottom()
+    return
+  }
+  if (msg.type === 'subtitle') {
+    subtitleText.value = msg.content || ''
+    return
+  }
+  if (msg.type === 'interviewer_audio' && msg.data) {
+    try {
+      await playBase64Audio(msg.data, msg.mimeType || 'audio/mpeg')
+    } catch {
+      // 忽略自动播放失败，字幕仍可阅读
+    }
+  }
+}
+
+const startVoiceAnswer = async () => {
+  if (!sessionId.value) return
+  try {
+    if (voiceMode.value !== 'voice') voiceMode.value = 'voice'
+    const connected = await setupVoiceChannel()
+    if (!connected || !voiceWs.isOpen()) {
+      ElMessage.warning('语音通道尚未就绪，请稍后重试')
+      return
+    }
+    pendingInterviewerText.value = ''
+    await audioRecorder.startBuffered()
+    isRecording.value = true
+  } catch (e: any) {
+    ElMessage.error(e?.message || '无法启动录音，请检查麦克风权限')
+  }
+}
+
+const stopVoiceAnswer = async () => {
+  if (!sessionId.value) return
+  const chunk = audioRecorder.stopAndExport()
+  isRecording.value = false
+  if (!chunk?.base64) {
+    ElMessage.warning('未采集到语音，请重试')
+    return
+  }
+  try {
+    const connected = await setupVoiceChannel()
+    if (!connected || !voiceWs.isOpen()) {
+      ElMessage.error('语音通道未连接，请稍后重试')
+      return
+    }
+    isLoading.value = true
+    pendingInterviewerText.value = ''
+    voiceWs.sendAudioChunk({
+      sessionId: sessionId.value,
+      data: chunk.base64,
+      format: chunk.format ?? 'pcm',
+      finalChunk: true,
+      clientTurnId: crypto.randomUUID()
+    })
+  } catch (e: any) {
+    isLoading.value = false
+    ElMessage.error(e?.message || '语音发送失败，请重试')
+  }
+}
+
 const sendMessage = async () => {
   if (!userInput.value.trim() || isLoading.value || !sessionId.value) return
   const content = userInput.value.trim()
   userInput.value = ''
+  if (voiceMode.value === 'voice') {
+    try {
+      const connected = await setupVoiceChannel()
+      if (!connected || !voiceWs.isOpen()) {
+        ElMessage.error('语音通道未连接，已改用文本发送')
+        throw new Error('voice channel unavailable')
+      }
+      isLoading.value = true
+      pendingInterviewerText.value = ''
+      voiceWs.sendTextAnswer({
+        sessionId: sessionId.value,
+        content,
+        clientTurnId: crypto.randomUUID()
+      })
+      turns.value.push({
+        role: 'USER',
+        content,
+        createTime: new Date().toISOString()
+      })
+      scrollToBottom()
+      return
+    } catch {
+      isLoading.value = false
+      if (voiceMode.value === 'voice') {
+        ElMessage.error('语音通道异常，切换到文本接口发送')
+      }
+    }
+  }
   isLoading.value = true
 
   const clientTurnId = crypto.randomUUID()
@@ -177,6 +357,8 @@ const handleComplete = async () => {
     isEnding.value = true
     await request.patch(`/api/interview/sessions/${sessionId.value}/complete`)
     ElMessage.success('面试已顺利完成！')
+    voiceWs.disconnect()
+    audioRecorder.stop()
     router.push('/')
   } catch {
     // 用户取消
@@ -184,6 +366,11 @@ const handleComplete = async () => {
     isEnding.value = false
   }
 }
+
+onUnmounted(() => {
+  voiceWs.disconnect()
+  audioRecorder.stop()
+})
 
 const scrollToBottom = () => {
   nextTick(() => {
@@ -210,6 +397,10 @@ const formatTime = (timeStr: string) => {
       </div>
       <div class="header-right" v-if="sessionId">
         <el-tag v-if="boundResumeName" type="success">已绑定简历：{{ boundResumeName }}</el-tag>
+        <el-radio-group v-model="voiceMode" size="small">
+          <el-radio-button label="voice">语音模式</el-radio-button>
+          <el-radio-button label="text">文本模式</el-radio-button>
+        </el-radio-group>
         <el-button type="danger" plain @click="handleComplete" :loading="isEnding">结束面试</el-button>
       </div>
     </header>
@@ -302,7 +493,17 @@ const formatTime = (timeStr: string) => {
             </div>
           </div>
 
-          <div v-if="isLoading" class="message-row left">
+          <div v-if="pendingInterviewerText" class="message-row left">
+            <el-avatar :size="40" class="avatar">AI</el-avatar>
+            <div class="message-content">
+              <div class="message-bubble">
+                <p class="bubble-text">{{ pendingInterviewerText }}</p>
+              </div>
+              <span class="message-time">生成中...</span>
+            </div>
+          </div>
+
+          <div v-if="isLoading && !pendingInterviewerText" class="message-row left">
             <el-avatar :size="40" class="avatar">AI</el-avatar>
             <div class="message-content">
               <div class="message-bubble typing">
@@ -314,11 +515,18 @@ const formatTime = (timeStr: string) => {
 
         <footer class="chat-footer">
           <div class="input-wrapper">
+            <VoiceControls
+              v-if="voiceMode === 'voice'"
+              :recording="isRecording"
+              :connecting="isVoiceConnecting"
+              @start="startVoiceAnswer"
+              @stop="stopVoiceAnswer"
+            />
             <el-input
               v-model="userInput"
               type="textarea"
               :rows="2"
-              placeholder="输入你的回答... (Ctrl+Enter 发送)"
+              :placeholder="voiceMode === 'voice' ? '可输入算法题答案或补充说明... (Ctrl+Enter 发送)' : '输入你的回答... (Ctrl+Enter 发送)'"
               resize="none"
               :disabled="isLoading"
               @keydown.ctrl.enter="sendMessage"
@@ -327,8 +535,9 @@ const formatTime = (timeStr: string) => {
               发送
             </el-button>
           </div>
+          <SubtitleDisplay :text="subtitleText" />
           <div class="footer-tip">
-            AI 面试官会结合岗位和（可选）简历内容动态追问，请认真作答。
+            语音模式下你可以直接说话，AI 将语音回复并同步字幕；算法题也可直接文本输入。
           </div>
         </footer>
       </div>
