@@ -217,8 +217,61 @@ export class AudioRecorder {
   }
 }
 
+let audioUnlocked = false
+
+/**
+ * 在用户手势（如点击）后调用一次，解除浏览器对后续程序化播放的限制。
+ * 建议在「开始面试」「发送」「开始语音」等操作时调用。
+ */
+export function unlockAudioForPlayback(): void {
+  if (audioUnlocked) return
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    if (ctx.state === 'suspended') {
+      ctx.resume()
+    }
+    audioUnlocked = true
+  } catch {
+    audioUnlocked = true
+  }
+}
+
+/**
+ * 播放 Base64 音频（后端下发的 interviewer_audio）。
+ * 若被浏览器自动播放策略拦截，会抛出，调用方应提示用户「点击页面后重试」。
+ */
 export async function playBase64Audio(base64: string, mimeType = 'audio/mpeg'): Promise<void> {
   if (!base64) return
-  const audio = new Audio(`data:${mimeType};base64,${base64}`)
-  await audio.play()
+  const normalizedMime = mimeType && mimeType.trim() ? mimeType.trim() : 'audio/mpeg'
+  const audio = new Audio(`data:${normalizedMime};base64,${base64}`)
+  try {
+    await audio.play()
+  } catch (e: any) {
+    const msg = e?.message ?? String(e)
+    if (/user interaction|interact|gesture|allowed|play\(\)/i.test(msg)) {
+      throw new Error('语音播放被浏览器阻止，请先点击页面任意处后再试')
+    }
+    throw e
+  }
+}
+
+/**
+ * 后端 TTS 不可用时的浏览器本地语音兜底播报。
+ * 注意：依赖浏览器的 speechSynthesis 能力与语音包，效果因设备而异。
+ */
+export function speakTextFallback(text: string): void {
+  if (!text?.trim()) return
+  if (typeof window === 'undefined' || !('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
+    return
+  }
+  try {
+    const utter = new SpeechSynthesisUtterance(text.trim())
+    utter.lang = 'zh-CN'
+    utter.rate = 1
+    utter.pitch = 1
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.speak(utter)
+  } catch {
+    // ignore fallback errors
+  }
 }

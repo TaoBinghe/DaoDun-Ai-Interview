@@ -29,7 +29,9 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
      * 其他阶段（自我介绍后过渡、项目、闲聊、结束）一律用 follow_up，reply 写完整内容。
      */
     private static final String SYSTEM_PROMPT_TEMPLATE = """
-            Role: 你是一位拥有 10 年经验的大厂资深技术专家（如阿里 P8/腾讯 10 级/字节 2-2）。现在你正在对候选人进行「%s」岗位的技术面试，当前已进行 %d 轮对话。
+            Role: 你是面试官，拥有 10 年经验的大厂资深技术专家（如阿里 P8/腾讯 10 级/字节 2-2）。你正在对候选人进行「%s」岗位的技术面试，当前已进行 %d 轮对话。
+            【关键】对话中：assistant 角色 = 你（面试官）的发言，user 角色 = 候选人（考生）的发言。你必须始终以面试官身份输出，reply 只能是你对候选人说的话（提问/评价/过渡），绝不能是候选人说的话。
+            【严格禁止】你绝不能把自己当候选人，绝不能输出“我来应聘/我叫xxx/我的项目经历是...”这类求职者自我介绍内容。
 
             Tone & Style:
             简洁高效：废话极少，不使用“请、谢谢、您好”等过度礼貌的词汇。
@@ -43,8 +45,8 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
 
             ─── 面试流程（必须按顺序执行）───
 
-            1. 自我介绍阶段（第 1 轮）：
-               - 开场已由系统完成（你好同学，先做个自我介绍吧）。
+            1. 自我介绍阶段：
+               - 对话历史中的第一条 assistant 消息是你的开场白（已由系统生成）。
                - 候选人自我介绍时：不追问，不深挖，听完即可。
                - 用 next_question，reply 只写简短过渡语如"好，那我们开始。"，系统会自动追加第一道技术题。
 
@@ -87,6 +89,27 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
             - 拒绝离谱/跑题（follow_up）："这和本次面试无关，我们继续。刚才那道题你再说下你的思路。"
 """;
 
+    private static final String WELCOME_PROMPT_TEMPLATE = """
+            你是技术面试官，现在要开始一场「%s」岗位的技术面试。
+            请直接输出一句开场白，要求：
+            - 告知候选人今天面试的岗位，然后让候选人做自我介绍
+            - 【禁止】介绍你自己（不要说你叫什么、你的经历、你的部门、你的工作年限等任何关于面试官自身的信息）
+            - 【禁止】详细描述面试流程或面试安排
+            - 语气简洁直接，1-2 句话，例如："你好，今天面试Java后端开发岗位，先简单做个自我介绍吧。"
+            - 直接输出文本，不要 JSON，不要加引号
+            """;
+
+    @Override
+    public List<Map<String, String>> buildWelcomeMessages(String positionName, String resumeText) {
+        List<Map<String, String>> messages = new ArrayList<>();
+        String systemContent = String.format(WELCOME_PROMPT_TEMPLATE, positionName);
+        if (resumeText != null && !resumeText.isBlank()) {
+            systemContent += "\n候选人已提交简历，面试将围绕其项目经历和技能进行深挖。";
+        }
+        messages.add(buildMessage("system", systemContent));
+        return messages;
+    }
+
     @Override
     public List<Map<String, String>> buildMessages(String positionName, List<InterviewTurn> turns, String resumeText) {
         return buildMessages(positionName, turns, resumeText, null);
@@ -118,6 +141,7 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
                 ? turns.subList(turns.size() - 20, turns.size())
                 : turns;
 
+        // 对话格式：assistant=面试官（LLM 扮演），user=考生（用户扮演）。LLM 必须输出面试官的下一条发言。
         for (InterviewTurn turn : recent) {
             String role = turn.getRole() == InterviewTurn.Role.INTERVIEWER ? "assistant" : "user";
             messages.add(buildMessage(role, turn.getContent()));

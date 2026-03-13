@@ -25,6 +25,12 @@ public interface InterviewPromptService {
                                             String resumeText, List<KnowledgeChunk> knowledgeContext);
 
     /**
+     * 构造面试开场白的 messages 列表（仅 system prompt，无对话历史）。
+     * LLM 将以面试官身份生成自然的开场白，输出纯文本。
+     */
+    List<Map<String, String>> buildWelcomeMessages(String positionName, String resumeText);
+
+    /**
      * 解析 LLM 返回的 JSON 字符串为 LlmDecision。
      * 若解析失败，降级为 follow_up 并将原始文本作为 reply，不抛出异常。
      */

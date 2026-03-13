@@ -29,12 +29,12 @@ public class VoiceSynthesisServiceImpl implements VoiceSynthesisService {
         VoiceProperties.Stt stt = voiceProperties.getStt();
         if (tts.isMockEnabled()) {
             return TtsResult.builder()
-                    .subtitle(text)
+                    .subtitle("")
                     .mimeType("audio/wav")
                     .audioBase64(null)
                     .build();
         }
-        if (stt.getEndpoint() == null || stt.getEndpoint().isBlank()) {
+        if (safe(stt.getEndpoint()).isBlank()) {
             log.warn("[Voice][RealtimeTTS] STT endpoint 未配置，无法通过端到端语音输出");
             return TtsResult.builder().subtitle(text).mimeType("audio/wav").build();
         }
@@ -51,14 +51,19 @@ public class VoiceSynthesisServiceImpl implements VoiceSynthesisService {
             byte[] wavBytes = client.synthesize(text, safe(tts.getSpeaker()));
             String audioBase64 = Base64.getEncoder().encodeToString(wavBytes);
             return TtsResult.builder()
-                    .subtitle(text)
+                    .subtitle("")
                     .audioBase64(audioBase64)
                     .mimeType("audio/wav")
                     .build();
         } catch (Exception e) {
-            log.warn("[Voice][RealtimeTTS] 合成失败，降级字幕: {}", e.getMessage());
+            log.warn("[Voice][RealtimeTTS] 合成失败，降级字幕: {} | endpoint={} appIdPresent={} apiKeyPresent={} resourceId={}",
+                    e.getMessage(),
+                    safe(stt.getEndpoint()),
+                    !safe(stt.getAppId()).isBlank(),
+                    !safe(stt.getApiKey()).isBlank(),
+                    safe(stt.getResourceId()));
             return TtsResult.builder()
-                    .subtitle(text)
+                    .subtitle("")
                     .mimeType("audio/wav")
                     .audioBase64(null)
                     .build();
@@ -66,6 +71,6 @@ public class VoiceSynthesisServiceImpl implements VoiceSynthesisService {
     }
 
     private String safe(String value) {
-        return value == null ? "" : value;
+        return value == null ? "" : value.trim();
     }
 }

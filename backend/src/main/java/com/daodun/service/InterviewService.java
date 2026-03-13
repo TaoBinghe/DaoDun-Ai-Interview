@@ -40,6 +40,13 @@ public interface InterviewService {
     PostTurnResponse postTurnStreaming(Long userId, Long sessionId, PostTurnRequest request, Consumer<String> onDelta);
 
     /**
+     * 生成面试开场白（由 LLM 以面试官身份生成）。
+     * 若会话已有面试官发言则直接返回已有内容（幂等）。
+     * 流式回调 onDelta 用于实时推送文本增量。
+     */
+    String generateWelcomeStreaming(Long userId, Long sessionId, Consumer<String> onDelta);
+
+    /**
      * 结束面试会话（状态机：IN_PROGRESS -> COMPLETED）。
      * 幂等：已结束的会话重复调用返回成功。
      */

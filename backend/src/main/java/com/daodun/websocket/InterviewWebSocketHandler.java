@@ -1,9 +1,6 @@
 package com.daodun.websocket;
 
-import com.daodun.dto.interview.PostTurnRequest;
-import com.daodun.dto.interview.PostTurnResponse;
 import com.daodun.dto.interview.SessionDetailResponse;
-import com.daodun.dto.interview.TurnDto;
 import com.daodun.dto.voice.TtsResult;
 import com.daodun.dto.voice.VoiceInboundMessage;
 import com.daodun.dto.voice.VoiceOutboundMessage;
@@ -22,7 +19,6 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.io.ByteArrayOutputStream;
 import java.util.Base64;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -36,10 +32,12 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
     private final VoiceSynthesisService voiceSynthesisService;
 
     private final Map<String, ByteArrayOutputStream> audioBuffers = new ConcurrentHashMap<>();
+    private final Map<String, Integer> interviewRounds = new ConcurrentHashMap<>();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         audioBuffers.put(session.getId(), new ByteArrayOutputStream());
+        interviewRounds.put(session.getId(), 0);
         send(session, VoiceOutboundMessage.builder()
                 .type("connected")
                 .content("语音通道已连接")
@@ -68,6 +66,7 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         audioBuffers.remove(session.getId());
+        interviewRounds.remove(session.getId());
     }
 
     private void onAudioChunk(WebSocketSession session, VoiceInboundMessage in) throws Exception {
@@ -121,53 +120,40 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
                 .build());
 
         Long userId = (Long) session.getAttributes().get("userId");
-        PostTurnRequest req = new PostTurnRequest();
-        req.setContent(transcript);
-        req.setClientTurnId(in.getClientTurnId() != null ? in.getClientTurnId() : UUID.randomUUID().toString());
-        postTurnStreamingAndRespond(session, userId, in.getSessionId(), req);
-    }
-
-    private void onTextAnswer(WebSocketSession session, VoiceInboundMessage in) throws Exception {
-        if (in.getContent() == null || in.getContent().isBlank()) {
+        if (userId == null || in.getSessionId() == null) {
             send(session, VoiceOutboundMessage.builder()
                     .type("error")
-                    .content("文本回答不能为空")
+                    .content("会话信息缺失，请重新进入面试")
                     .isFinal(true)
                     .build());
             return;
         }
-        Long userId = (Long) session.getAttributes().get("userId");
-        PostTurnRequest req = new PostTurnRequest();
-        req.setContent(in.getContent().trim());
-        req.setClientTurnId(in.getClientTurnId() != null ? in.getClientTurnId() : UUID.randomUUID().toString());
-        postTurnStreamingAndRespond(session, userId, in.getSessionId(), req);
+        respondWithRealtimeInterviewer(session, userId, in.getSessionId(), transcript, false);
+    }
+
+    private void onTextAnswer(WebSocketSession session, VoiceInboundMessage in) throws Exception {
+        send(session, VoiceOutboundMessage.builder()
+                .type("error")
+                .content("文本面试模式已关闭，请使用语音作答")
+                .isFinal(true)
+                .build());
     }
 
     private void onPlayWelcome(WebSocketSession session, VoiceInboundMessage in) throws Exception {
         Long userId = (Long) session.getAttributes().get("userId");
         if (userId == null || in.getSessionId() == null) return;
-        SessionDetailResponse detail = interviewService.getSessionDetail(userId, in.getSessionId());
-        String firstInterviewerContent = detail.getTurns().stream()
-                .filter(t -> t.getRole() != null && "INTERVIEWER".equals(t.getRole().name()))
-                .map(TurnDto::getContent)
-                .findFirst()
-                .orElse(null);
-        if (firstInterviewerContent == null || firstInterviewerContent.isBlank()) return;
-        send(session, VoiceOutboundMessage.builder()
-                .type("interviewer_text")
-                .content(firstInterviewerContent)
-                .isFinal(true)
-                .build());
-        pushTts(session, firstInterviewerContent);
+        respondWithRealtimeInterviewer(session, userId, in.getSessionId(), null, true);
     }
 
     private void pushTts(WebSocketSession session, String reply) throws Exception {
         TtsResult ttsResult = voiceSynthesisService.synthesize(reply);
-        send(session, VoiceOutboundMessage.builder()
-                .type("subtitle")
-                .content(ttsResult.getSubtitle())
-                .isFinal(true)
-                .build());
+        if (ttsResult.getSubtitle() != null && !ttsResult.getSubtitle().isBlank()) {
+            send(session, VoiceOutboundMessage.builder()
+                    .type("subtitle")
+                    .content(ttsResult.getSubtitle())
+                    .isFinal(true)
+                    .build());
+        }
         if (ttsResult.getAudioBase64() != null && !ttsResult.getAudioBase64().isBlank()) {
             send(session, VoiceOutboundMessage.builder()
                     .type("interviewer_audio")
@@ -175,40 +161,42 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
                     .mimeType(ttsResult.getMimeType())
                     .isFinal(true)
                     .build());
+            return;
         }
-    }
-
-    private void postTurnStreamingAndRespond(WebSocketSession session, Long userId, Long sessionId, PostTurnRequest req) throws Exception {
-        PostTurnResponse response;
-        try {
-            response = interviewService.postTurnStreaming(userId, sessionId, req, delta -> {
-                if (delta == null || delta.isBlank()) {
-                    return;
-                }
-                try {
-                    send(session, VoiceOutboundMessage.builder()
-                            .type("interviewer_text_delta")
-                            .content(delta)
-                            .isFinal(false)
-                            .build());
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-        } catch (RuntimeException e) {
-            if (e.getCause() instanceof Exception ex) {
-                throw ex;
-            }
-            throw e;
-        }
-
-        String reply = response.getInterviewerTurn() != null ? response.getInterviewerTurn().getContent() : "";
         send(session, VoiceOutboundMessage.builder()
-                .type("interviewer_text")
-                .content(reply)
+                .type("error")
+                .content("端到端语音模型未返回音频，请检查语音模型配置")
                 .isFinal(true)
                 .build());
-        pushTts(session, reply);
+    }
+
+    private void respondWithRealtimeInterviewer(WebSocketSession session,
+                                                Long userId,
+                                                Long sessionId,
+                                                String userTranscript,
+                                                boolean welcome) throws Exception {
+        SessionDetailResponse detail = interviewService.getSessionDetail(userId, sessionId);
+        String positionName = detail.getPositionName() != null ? detail.getPositionName() : "技术";
+        int round = interviewRounds.compute(session.getId(), (k, v) -> v == null ? 1 : v + 1);
+
+        String prompt;
+        if (welcome) {
+            prompt = """
+                    你是技术面试官，不是候选人。现在开始一场%s岗位面试。
+                    请你只说一句开场白：要求候选人先做自我介绍。
+                    严禁自我介绍，严禁说“我叫/我来应聘/我的经历”。
+                    """.formatted(positionName);
+        } else {
+            String safeUserText = (userTranscript == null || userTranscript.isBlank()) ? "（候选人回答较短）" : userTranscript.trim();
+            prompt = """
+                    你是%s岗位的技术面试官，不是候选人。当前是第%d轮。
+                    候选人刚才回答：%s
+                    请作为面试官继续面试：先一句简短评价，再提出一个追问或下一题。
+                    严禁把自己当候选人，严禁自我介绍，严禁输出“我叫/我来应聘/我的项目经历”。
+                    回复保持口语化，40字以内。
+                    """.formatted(positionName, round, safeUserText);
+        }
+        pushTts(session, prompt);
     }
 
     private void send(WebSocketSession session, VoiceOutboundMessage payload) throws Exception {

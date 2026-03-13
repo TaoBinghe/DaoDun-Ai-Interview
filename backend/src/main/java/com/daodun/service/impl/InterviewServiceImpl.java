@@ -62,8 +62,6 @@ public class InterviewServiceImpl implements InterviewService {
             resume = requireUserResume(userId, request.getResumeId());
         }
 
-        // 首轮：固定打招呼 + 自我介绍，不抽题
-        String firstContent = "你好同学，先做个自我介绍吧。";
         Question firstQuestion = drawFirstQuestion(request.getPositionId(), request.getType());
 
         InterviewSession session = InterviewSession.builder()
@@ -71,26 +69,15 @@ public class InterviewServiceImpl implements InterviewService {
                 .positionId(position.getId())
                 .resumeId(resume != null ? resume.getId() : null)
                 .status(InterviewSession.Status.IN_PROGRESS)
-                .currentTurnIndex(1)
+                .currentTurnIndex(0)
                 .lastQuestionId(firstQuestion.getId())
                 .build();
         session = sessionRepository.save(session);
 
-        InterviewTurn firstTurn = InterviewTurn.builder()
-                .sessionId(session.getId())
-                .turnIndex(1)
-                .role(InterviewTurn.Role.INTERVIEWER)
-                .messageType(InterviewTurn.MessageType.FOLLOW_UP)
-                .questionId(null)
-                .content(firstContent)
-                .build();
-        turnRepository.save(firstTurn);
-
-        log.info("[Interview] 创建会话 sessionId={} userId={} positionId={} firstContent=自我介绍",
+        log.info("[Interview] 创建会话 sessionId={} userId={} positionId={} (开场白将由LLM生成)",
                 session.getId(), userId, position.getId());
 
-        List<TurnDto> turns = List.of(toTurnDto(firstTurn));
-        return toDetailResponse(session, position.getName(), resume != null ? resume.getFileName() : null, turns);
+        return toDetailResponse(session, position.getName(), resume != null ? resume.getFileName() : null, List.of());
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -241,6 +228,75 @@ public class InterviewServiceImpl implements InterviewService {
                 .interviewerTurn(toTurnDto(interviewerTurn))
                 .currentTurnIndex(interviewerTurnIndex)
                 .build();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  LLM 生成面试开场白
+    // ─────────────────────────────────────────────────────────────
+
+    @Override
+    @Transactional
+    public String generateWelcomeStreaming(Long userId, Long sessionId, Consumer<String> onDelta) {
+        InterviewSession session = requireSession(sessionId);
+        requireOwner(session, userId);
+        requireInProgress(session);
+
+        // 幂等：若已有面试官发言，直接返回
+        List<InterviewTurn> existingTurns = turnRepository.findBySessionIdOrderByTurnIndexAsc(sessionId);
+        String existingWelcome = existingTurns.stream()
+                .filter(t -> t.getRole() == InterviewTurn.Role.INTERVIEWER)
+                .map(InterviewTurn::getContent)
+                .findFirst()
+                .orElse(null);
+        if (existingWelcome != null) {
+            log.info("[Interview] 开场白已存在（幂等）sessionId={}", sessionId);
+            return existingWelcome;
+        }
+
+        Position position = positionRepository.findById(session.getPositionId()).orElseThrow();
+
+        String resumeText = null;
+        if (session.getResumeId() != null) {
+            resumeText = userResumeRepository.findByIdAndUserId(session.getResumeId(), userId)
+                    .map(this::buildResumeContext)
+                    .orElse(null);
+        }
+
+        List<Map<String, String>> messages = promptService.buildWelcomeMessages(position.getName(), resumeText);
+
+        long llmStart = System.currentTimeMillis();
+        String welcomeText;
+        try {
+            welcomeText = arkChatService.chatWithMessagesStream(messages, onDelta != null ? onDelta : delta -> {});
+        } catch (Exception e) {
+            log.error("[Interview] LLM 生成开场白失败 sessionId={}: {}", sessionId, e.getMessage());
+            welcomeText = "你好，今天面试" + position.getName() + "岗位，请先简单做个自我介绍。";
+            if (onDelta != null) onDelta.accept(welcomeText);
+        }
+        long latencyMs = System.currentTimeMillis() - llmStart;
+
+        // 清理 LLM 输出中可能的引号包裹
+        welcomeText = welcomeText.strip();
+        if (welcomeText.startsWith("\"") && welcomeText.endsWith("\"")) {
+            welcomeText = welcomeText.substring(1, welcomeText.length() - 1);
+        }
+
+        InterviewTurn welcomeTurn = InterviewTurn.builder()
+                .sessionId(sessionId)
+                .turnIndex(1)
+                .role(InterviewTurn.Role.INTERVIEWER)
+                .messageType(InterviewTurn.MessageType.FOLLOW_UP)
+                .questionId(null)
+                .content(welcomeText)
+                .latencyMs(latencyMs)
+                .build();
+        turnRepository.save(welcomeTurn);
+
+        session.setCurrentTurnIndex(1);
+        sessionRepository.save(session);
+
+        log.info("[Interview] LLM 生成开场白完成 sessionId={} latency={}ms", sessionId, latencyMs);
+        return welcomeText;
     }
 
     // ─────────────────────────────────────────────────────────────
