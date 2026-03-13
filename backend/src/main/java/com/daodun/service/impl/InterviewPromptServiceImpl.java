@@ -50,10 +50,14 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
                - 候选人自我介绍时：不追问，不深挖，听完即可。
                - 用 next_question，reply 只写简短过渡语如"好，那我们开始。"，系统会自动追加第一道技术题。
 
+            ─── 题库与知识库使用（严禁照抄）───
+            - 题库：题库只限定「问题的主题/考点」，不是让你或系统原样念题。系统提供题目主题后，会由你用自己的话向候选人提问（换说法、拆成子问、换角度均可），禁止直接复制题库题干原文。
+            - 知识库：知识库仅供「追问方向与评判参考」，追问时只参考其中的方向与要点，必须用自己的话组织追问内容，禁止照抄知识库里的「可追问方向」或标准答案原文。知识库是参考，不是让你复读的脚本。
+
             2. 技术题阶段：
-               - follow_up（深挖）：候选人只回答了“是什么”没答“为什么/怎么实现”时，深挖底层源码或边界情况。
+               - follow_up（深挖）：候选人只回答了“是什么”没答“为什么/怎么实现”时，深挖底层源码或边界情况。追问时参考知识库的「可追问方向」用自己话问，不要照搬知识库原文。
                - next_question（切题）：候选人把当前点讲透，或明显不会（及时止损），给出简评后切入下一题。
-                 【重要】使用 next_question 时，reply 里严禁出现下一道题的内容，只写一句简短过渡语（如"不错，这块挺扎实。"、"行，看下下一个维度。"），系统会自动从题库追加下一道技术题。若在 reply 里自己写了题目，候选人会同时看到两道题。
+                 【重要】使用 next_question 时，reply 里严禁出现下一道题的内容，只写一句简短过渡语（如"不错，这块挺扎实。"、"行，看下下一个维度。"），系统会从题库取题目主题并由你用自己的话表述后追加。若在 reply 里自己写了题目，候选人会同时看到两道题。
                - 自我判断何时结束技术题：
                  a) 基础很好 + 追问答得非常好 → 过渡到项目阶段。
                  b) 基础很差 + 没必要再问 → 提醒后过渡到项目，例如："这方面还不行啊，那我们聊一下项目吧。"
@@ -102,6 +106,19 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
 
     /** 用于触发模型生成开场白的 user 消息：仅发 system 时模型易混淆身份，加一条明确指令让模型以 assistant（面试官）身份回复 */
     private static final String WELCOME_USER_TRIGGER = "请以面试官身份说出你对候选人说的第一句话（开场白），只输出这一句话。";
+
+    private static final String REPHRASE_QUESTION_SYSTEM = """
+            你是技术面试官。下面是一道题的「主题/考点」描述，不是让你照抄的题干。
+            请用你自己的话，向候选人提出这道题（可以换说法、拆成小问、换角度，保持同一考点即可）。
+            只输出一句你对候选人说的问话，不要加引号、不要 JSON、不要解释。不要照抄输入原文。""";
+
+    @Override
+    public List<Map<String, String>> buildRephraseQuestionMessages(String questionTheme) {
+        List<Map<String, String>> messages = new ArrayList<>();
+        messages.add(buildMessage("system", REPHRASE_QUESTION_SYSTEM));
+        messages.add(buildMessage("user", "题目主题：\n" + (questionTheme == null ? "" : questionTheme.trim())));
+        return messages;
+    }
 
     @Override
     public List<Map<String, String>> buildWelcomeMessages(String positionName, String resumeText) {
@@ -158,7 +175,7 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
     private String buildKnowledgeBlock(List<KnowledgeChunk> chunks) {
         int maxChars = ragProperties.getPrompt().getMaxChars();
         StringBuilder sb = new StringBuilder();
-        sb.append("【知识库参考（用于追问与评判，禁止逐字复读）】\n");
+        sb.append("【知识库参考（仅作追问方向与评判参考，禁止照抄原文）】\n");
 
         for (KnowledgeChunk chunk : chunks) {
             StringBuilder entry = new StringBuilder();
@@ -189,7 +206,7 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
         }
 
         sb.append("【/知识库参考】\n");
-        sb.append("以上知识仅供你判断候选人回答质量和决定追问方向，不要直接告诉候选人标准答案。");
+        sb.append("以上知识仅供判断回答质量和决定追问方向。追问时请根据「可追问方向」自己组织语言提问，不要照抄知识库中的句子；不要向候选人直接念标准答案。");
         return sb.toString();
     }
 

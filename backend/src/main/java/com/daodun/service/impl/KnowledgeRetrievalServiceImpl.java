@@ -33,10 +33,15 @@ public class KnowledgeRetrievalServiceImpl implements KnowledgeRetrievalService 
     @Override
     public List<KnowledgeChunk> retrieve(String positionName, String queryText, List<String> keywords) {
         int topK = ragProperties.getRetrieval().getTopK();
+        double minScore = ragProperties.getRetrieval().getMinScore();
         Map<Long, KnowledgeChunk> merged = new LinkedHashMap<>();
+
+        log.info("[RAG][检索] 入参 positionName={} topK={} minScore={} queryText(截断)={} keywords={}",
+                positionName, topK, minScore, truncate(queryText, 200), keywords);
 
         if (keywords == null || keywords.isEmpty()) {
             keywords = extractKeywordsFromQuery(queryText);
+            log.info("[RAG][检索] 未传关键词，从查询自动提取: {}", keywords);
         }
 
         // 第一路：向量召回
@@ -49,10 +54,16 @@ public class KnowledgeRetrievalServiceImpl implements KnowledgeRetrievalService 
                 for (KnowledgeChunk chunk : vectorResults) {
                     merged.putIfAbsent(chunk.getId(), chunk);
                 }
-                log.info("[RAG] 向量召回 {} 条, positionName={}", vectorResults.size(), positionName);
+                log.info("[RAG][检索] 向量召回 共 {} 条 (维度={})", vectorResults.size(), queryVec.length);
+                for (int i = 0; i < vectorResults.size(); i++) {
+                    KnowledgeChunk c = vectorResults.get(i);
+                    log.info("[RAG][检索]   向量[{}] id={} title={}", i + 1, c.getId(), truncate(c.getTitle(), 60));
+                }
+            } else {
+                log.warn("[RAG][检索] 向量为空，跳过向量召回");
             }
         } catch (Exception e) {
-            log.warn("[RAG] 向量召回失败，降级为关键词模式: {}", e.getMessage());
+            log.warn("[RAG][检索] 向量召回失败，降级为关键词模式: {}", e.getMessage());
         }
 
         // 第二路：关键词/规则兜底（含从查询中自动提取的关键词）
@@ -62,11 +73,13 @@ public class KnowledgeRetrievalServiceImpl implements KnowledgeRetrievalService 
                 try {
                     List<KnowledgeChunk> kwResults =
                             chunkRepository.findByKeyword(positionName, kw.trim(), topK);
+                    int added = 0;
                     for (KnowledgeChunk chunk : kwResults) {
-                        merged.putIfAbsent(chunk.getId(), chunk);
+                        if (merged.putIfAbsent(chunk.getId(), chunk) == null) added++;
                     }
+                    log.info("[RAG][检索] 关键词 \"{}\" 命中 {} 条，其中新增 {} 条", kw, kwResults.size(), added);
                 } catch (Exception e) {
-                    log.warn("[RAG] 关键词检索失败 keyword={}: {}", kw, e.getMessage());
+                    log.warn("[RAG][检索] 关键词检索失败 keyword={}: {}", kw, e.getMessage());
                 }
             }
         }
@@ -74,9 +87,16 @@ public class KnowledgeRetrievalServiceImpl implements KnowledgeRetrievalService 
         List<KnowledgeChunk> result = new ArrayList<>(merged.values());
         if (result.size() > topK) {
             result = result.subList(0, topK);
+            log.info("[RAG][检索] 合并后超过 topK，截断为 {} 条", topK);
         }
-        log.info("[RAG] 混合检索最终返回 {} 条, positionName={}", result.size(), positionName);
+        log.info("[RAG][检索] 混合检索结束 最终返回 {} 条 | id列表={}",
+                result.size(), result.stream().map(KnowledgeChunk::getId).toList());
         return result;
+    }
+
+    private static String truncate(String s, int maxLen) {
+        if (s == null) return "";
+        return s.length() <= maxLen ? s : s.substring(0, maxLen) + "...";
     }
 
     /**
@@ -92,9 +112,6 @@ public class KnowledgeRetrievalServiceImpl implements KnowledgeRetrievalService 
                 .distinct()
                 .limit(5)
                 .toList();
-        if (!keywords.isEmpty()) {
-            log.debug("[RAG] 从查询自动提取关键词: {}", keywords);
-        }
         return keywords;
     }
 }

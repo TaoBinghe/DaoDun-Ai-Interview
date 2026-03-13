@@ -188,10 +188,11 @@ public class InterviewServiceImpl implements InterviewService {
             if (nextQuestion != null) {
                 nextQuestionId = nextQuestion.getId();
                 interviewerType = InterviewTurn.MessageType.QUESTION;
-                // 过渡语 + 新题目内容
+                // 用自己话表述题目（题库只限定主题，不直接照抄题干）
+                String questionText = rephraseQuestionTheme(nextQuestion.getContent());
                 interviewerContent = decision.getReply().isBlank()
-                        ? nextQuestion.getContent()
-                        : decision.getReply() + "\n\n" + nextQuestion.getContent();
+                        ? questionText
+                        : decision.getReply() + "\n\n" + questionText;
             } else {
                 log.warn("[Interview] 无更多可用题目 sessionId={}，保持追问模式", sessionId);
                 interviewerType = InterviewTurn.MessageType.FOLLOW_UP;
@@ -400,28 +401,75 @@ public class InterviewServiceImpl implements InterviewService {
     }
 
     /**
+     * 用 LLM 将题库题干（主题）改写成面试官自己的话，避免照抄题库原文。
+     * 若调用失败或返回为空，则退回原题干。
+     */
+    private String rephraseQuestionTheme(String questionTheme) {
+        if (questionTheme == null || questionTheme.isBlank()) {
+            return questionTheme == null ? "" : questionTheme;
+        }
+        try {
+            List<Map<String, String>> messages = promptService.buildRephraseQuestionMessages(questionTheme);
+            String out = arkChatService.chatWithMessages(messages);
+            if (out != null && !out.isBlank()) {
+                return out.trim();
+            }
+        } catch (Exception e) {
+            log.warn("[Interview] 题目改写失败，使用原题干: {}", e.getMessage());
+        }
+        return questionTheme;
+    }
+
+    /**
      * 构造 RAG 检索上下文：从最近面试轮次中提取查询文本和关键词，调用检索服务。
      */
     private List<KnowledgeChunk> retrieveKnowledge(String positionName, String userAnswer,
                                                    List<InterviewTurn> allTurns) {
+        if (!ragProperties.isEnabled()) {
+            log.info("[RAG][Interview] RAG 未开启 (rag.enabled=false)，跳过知识库检索");
+            return List.of();
+        }
         try {
             String lastQuestion = "";
             for (int i = allTurns.size() - 1; i >= 0; i--) {
                 InterviewTurn t = allTurns.get(i);
                 if (t.getRole() == InterviewTurn.Role.INTERVIEWER) {
-                    lastQuestion = t.getContent();
+                    lastQuestion = t.getContent() != null ? t.getContent() : "";
                     break;
                 }
             }
-            String queryText = lastQuestion + " " + (userAnswer != null ? userAnswer : "");
-
+            String queryText = lastQuestion + " " + (userAnswer != null ? userAnswer : "").trim();
             List<String> keywords = extractTechKeywords(queryText);
 
-            return knowledgeRetrievalService.retrieve(positionName, queryText, keywords);
+            log.info("[RAG][Interview] 开始检索 positionName={} | 上一问(截断)={} | 用户回答(截断)={} | 提取关键词={}",
+                    positionName,
+                    truncate(lastQuestion, 120),
+                    truncate(userAnswer, 120),
+                    keywords);
+
+            List<KnowledgeChunk> result = knowledgeRetrievalService.retrieve(positionName, queryText, keywords);
+
+            if (result.isEmpty()) {
+                log.info("[RAG][Interview] 检索完成 命中 0 条");
+            } else {
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < result.size(); i++) {
+                    KnowledgeChunk c = result.get(i);
+                    if (i > 0) sb.append("; ");
+                    sb.append("id=").append(c.getId()).append(" title=").append(truncate(c.getTitle(), 40));
+                }
+                log.info("[RAG][Interview] 检索完成 命中 {} 条 | {}", result.size(), sb);
+            }
+            return result;
         } catch (Exception e) {
             log.warn("[Interview] RAG 检索异常，降级为无知识库模式: {}", e.getMessage());
             return List.of();
         }
+    }
+
+    private static String truncate(String s, int maxLen) {
+        if (s == null) return "";
+        return s.length() <= maxLen ? s : s.substring(0, maxLen) + "...";
     }
 
     private List<String> extractTechKeywords(String text) {

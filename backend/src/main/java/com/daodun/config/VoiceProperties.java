@@ -21,7 +21,9 @@ public class VoiceProperties {
         private String apiKey = "";
         private String appId = "";
         private String appKey = "";
-        private String resourceId = "";
+        /** 流式 ASR (api/v2/asr) 必填：控制台 Cluster ID */
+        private String cluster = "volcano_asr";
+        private String resourceId = "volc.asr.default";
         private String format = "webm";
         private Integer sampleRate = 16000;
         private boolean mockEnabled = false;

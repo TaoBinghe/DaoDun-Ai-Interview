@@ -35,4 +35,10 @@ public interface InterviewPromptService {
      * 若解析失败，降级为 follow_up 并将原始文本作为 reply，不抛出异常。
      */
     LlmDecision parseLlmResponse(String rawResponse);
+
+    /**
+     * 构造「用自己话表述题目」的一次性对话 messages。
+     * 输入为题库题干（主题），输出为面试官向候选人提问时说的那一句话（禁止照抄题干）。
+     */
+    List<Map<String, String>> buildRephraseQuestionMessages(String questionTheme);
 }
