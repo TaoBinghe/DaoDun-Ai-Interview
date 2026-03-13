@@ -27,6 +27,8 @@ public class VoiceRecognitionServiceImpl implements VoiceRecognitionService {
         if (audioBytes == null || audioBytes.length == 0) {
             throw new BusinessException("未检测到可识别的语音数据");
         }
+        log.info("[VoiceTrace] stt_input bytes={} format={} sampleRate={}",
+                audioBytes.length, format, sampleRate);
         VoiceProperties.Stt stt = voiceProperties.getStt();
         if (stt.isMockEnabled()) {
             // 便于本地联调：允许将文本字节直接作为“识别结果”回传
@@ -68,6 +70,7 @@ public class VoiceRecognitionServiceImpl implements VoiceRecognitionService {
             if (text == null || text.isBlank()) {
                 throw new BusinessException("语音识别结果为空，请重试");
             }
+            log.info("[VoiceTrace] stt_output text={}", text.trim());
             return text.trim();
         } catch (Exception e) {
             log.error("[Voice][STT] 识别失败: {}", e.getMessage());
@@ -88,6 +91,7 @@ public class VoiceRecognitionServiceImpl implements VoiceRecognitionService {
             if (text == null || text.isBlank()) {
                 throw new BusinessException("语音识别结果为空，请重试");
             }
+            log.info("[VoiceTrace] stt_output text={}", text.trim());
             return text.trim();
         } catch (Exception e) {
             log.error("[Voice][STT] WebSocket 识别失败: {}", e.getMessage());

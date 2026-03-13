@@ -1,6 +1,8 @@
 package com.daodun.websocket;
 
-import com.daodun.dto.interview.SessionDetailResponse;
+import com.daodun.common.BusinessException;
+import com.daodun.dto.interview.PostTurnRequest;
+import com.daodun.dto.interview.PostTurnResponse;
 import com.daodun.dto.voice.TtsResult;
 import com.daodun.dto.voice.VoiceInboundMessage;
 import com.daodun.dto.voice.VoiceOutboundMessage;
@@ -32,12 +34,10 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
     private final VoiceSynthesisService voiceSynthesisService;
 
     private final Map<String, ByteArrayOutputStream> audioBuffers = new ConcurrentHashMap<>();
-    private final Map<String, Integer> interviewRounds = new ConcurrentHashMap<>();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         audioBuffers.put(session.getId(), new ByteArrayOutputStream());
-        interviewRounds.put(session.getId(), 0);
         send(session, VoiceOutboundMessage.builder()
                 .type("connected")
                 .content("语音通道已连接")
@@ -65,8 +65,9 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        log.info("[VoiceTrace] ws_closed wsSessionId={} code={} reason={}",
+                session.getId(), status.getCode(), status.getReason());
         audioBuffers.remove(session.getId());
-        interviewRounds.remove(session.getId());
     }
 
     private void onAudioChunk(WebSocketSession session, VoiceInboundMessage in) throws Exception {
@@ -74,6 +75,8 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
         ByteArrayOutputStream bos = audioBuffers.computeIfAbsent(session.getId(), k -> new ByteArrayOutputStream());
         byte[] chunk = Base64.getDecoder().decode(in.getData());
         bos.write(chunk);
+        log.debug("[VoiceTrace] audio_chunk wsSessionId={} chunkBytes={} finalChunk={}",
+                session.getId(), chunk.length, Boolean.TRUE.equals(in.getFinalChunk()));
         if (Boolean.TRUE.equals(in.getFinalChunk())) {
             onAudioCommit(session, in);
         }
@@ -83,6 +86,8 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
         ByteArrayOutputStream bos = audioBuffers.computeIfAbsent(session.getId(), k -> new ByteArrayOutputStream());
         byte[] audioBytes = bos.toByteArray();
         bos.reset();
+        log.info("[VoiceTrace] audio_commit wsSessionId={} appSessionId={} audioBytes={} format={}",
+                session.getId(), in.getSessionId(), audioBytes.length, in.getFormat());
         if (audioBytes.length == 0) {
             send(session, VoiceOutboundMessage.builder()
                     .type("error")
@@ -113,6 +118,9 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
+        log.info("[VoiceTrace] user_transcript wsSessionId={} appSessionId={} text={}",
+                session.getId(), in.getSessionId(), transcript);
+
         send(session, VoiceOutboundMessage.builder()
                 .type("user_transcript")
                 .content(transcript)
@@ -128,7 +136,25 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
                     .build());
             return;
         }
-        respondWithRealtimeInterviewer(session, userId, in.getSessionId(), transcript, false);
+
+        PostTurnRequest req = new PostTurnRequest();
+        req.setContent(transcript);
+        try {
+            PostTurnResponse resp = interviewService.postTurn(userId, in.getSessionId(), req);
+            String content = resp.getInterviewerTurn() != null && resp.getInterviewerTurn().getContent() != null
+                    ? resp.getInterviewerTurn().getContent() : "";
+            if (content.isBlank()) {
+                content = "请继续回答。";
+            }
+            pushTts(session, content);
+        } catch (BusinessException e) {
+            log.warn("[VoiceTrace] postTurn 失败 wsSessionId={} appSessionId={}: {}", session.getId(), in.getSessionId(), e.getMessage());
+            send(session, VoiceOutboundMessage.builder()
+                    .type("error")
+                    .content(e.getMessage() != null ? e.getMessage() : "AI 面试官暂时无响应，请稍后重试")
+                    .isFinal(true)
+                    .build());
+        }
     }
 
     private void onTextAnswer(WebSocketSession session, VoiceInboundMessage in) throws Exception {
@@ -142,10 +168,23 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
     private void onPlayWelcome(WebSocketSession session, VoiceInboundMessage in) throws Exception {
         Long userId = (Long) session.getAttributes().get("userId");
         if (userId == null || in.getSessionId() == null) return;
-        respondWithRealtimeInterviewer(session, userId, in.getSessionId(), null, true);
+        try {
+            String welcomeText = interviewService.generateWelcomeStreaming(userId, in.getSessionId(), delta -> {});
+            log.info("[VoiceTrace] welcome_text wsSessionId={} appSessionId={} text={}",
+                    session.getId(), in.getSessionId(), welcomeText);
+            pushTts(session, welcomeText);
+        } catch (BusinessException e) {
+            log.warn("[VoiceTrace] generateWelcomeStreaming 失败 wsSessionId={} appSessionId={}: {}", session.getId(), in.getSessionId(), e.getMessage());
+            send(session, VoiceOutboundMessage.builder()
+                    .type("error")
+                    .content(e.getMessage() != null ? e.getMessage() : "AI 面试官暂时无响应，请稍后重试")
+                    .isFinal(true)
+                    .build());
+        }
     }
 
     private void pushTts(WebSocketSession session, String reply) throws Exception {
+        log.info("[VoiceTrace] push_tts wsSessionId={} text={}", session.getId(), reply);
         TtsResult ttsResult = voiceSynthesisService.synthesize(reply);
         if (ttsResult.getSubtitle() != null && !ttsResult.getSubtitle().isBlank()) {
             send(session, VoiceOutboundMessage.builder()
@@ -165,38 +204,9 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
         }
         send(session, VoiceOutboundMessage.builder()
                 .type("error")
-                .content("端到端语音模型未返回音频，请检查语音模型配置")
+                .content("TTS 未返回音频，请检查语音合成配置")
                 .isFinal(true)
                 .build());
-    }
-
-    private void respondWithRealtimeInterviewer(WebSocketSession session,
-                                                Long userId,
-                                                Long sessionId,
-                                                String userTranscript,
-                                                boolean welcome) throws Exception {
-        SessionDetailResponse detail = interviewService.getSessionDetail(userId, sessionId);
-        String positionName = detail.getPositionName() != null ? detail.getPositionName() : "技术";
-        int round = interviewRounds.compute(session.getId(), (k, v) -> v == null ? 1 : v + 1);
-
-        String prompt;
-        if (welcome) {
-            prompt = """
-                    你是技术面试官，不是候选人。现在开始一场%s岗位面试。
-                    请你只说一句开场白：要求候选人先做自我介绍。
-                    严禁自我介绍，严禁说“我叫/我来应聘/我的经历”。
-                    """.formatted(positionName);
-        } else {
-            String safeUserText = (userTranscript == null || userTranscript.isBlank()) ? "（候选人回答较短）" : userTranscript.trim();
-            prompt = """
-                    你是%s岗位的技术面试官，不是候选人。当前是第%d轮。
-                    候选人刚才回答：%s
-                    请作为面试官继续面试：先一句简短评价，再提出一个追问或下一题。
-                    严禁把自己当候选人，严禁自我介绍，严禁输出“我叫/我来应聘/我的项目经历”。
-                    回复保持口语化，40字以内。
-                    """.formatted(positionName, round, safeUserText);
-        }
-        pushTts(session, prompt);
     }
 
     private void send(WebSocketSession session, VoiceOutboundMessage payload) throws Exception {

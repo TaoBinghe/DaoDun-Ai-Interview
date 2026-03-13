@@ -132,14 +132,20 @@ voice:
     sample-rate: 16000
     mock-enabled: false
   tts:
-    endpoint: ${VOLCANO_TTS_ENDPOINT:https://sami.bytedance.com/api/v1/invoke}
+    # 普通版（短文本）WebSocket：wss://openspeech.bytedance.com/api/v1/tts/ws_binary
+    # 精品长文本（异步）可改为：https://openspeech.bytedance.com/api/v1/tts_async/submit
+    endpoint: ${VOLCANO_TTS_ENDPOINT:wss://openspeech.bytedance.com/api/v1/tts/ws_binary}
+    access-key: ${VOLCANO_TTS_ACCESS_KEY:}
+    secret-key: ${VOLCANO_TTS_SECRET_KEY:}
     api-key: ${VOLCANO_TTS_API_KEY:${VOLCANO_STT_API_KEY:}}
     app-key: ${VOLCANO_TTS_APP_KEY:${VOLCANO_STT_APP_ID:}}
+    app-id: ${VOLCANO_TTS_APP_ID:${VOLCANO_STT_APP_ID:}}
+    cluster: ${VOLCANO_TTS_CLUSTER:volcano_tts}
     resource-id: ${VOLCANO_TTS_RESOURCE_ID:volc.service_type.10029}
     version: v4
     namespace: TTS
-    # 端到端实时语音输出需使用实时对话支持的说话人，如 zh_female_vv_jupiter_bigtts
     speaker: ${VOLCANO_TTS_SPEAKER:zh_female_vv_jupiter_bigtts}
+    voice-type: ${VOLCANO_TTS_VOICE_TYPE:BV701_streaming}
     format: mp3
     sample-rate: 24000
     enable-timestamp: true

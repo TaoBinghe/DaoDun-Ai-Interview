@@ -57,6 +57,8 @@ public class ArkChatServiceImpl implements ArkChatService {
                 "messages", messages
         );
 
+        logLlmInput("chat/completions", messages);
+
         long start = System.currentTimeMillis();
         Map<?, ?> response;
         try {
@@ -108,6 +110,8 @@ public class ArkChatServiceImpl implements ArkChatService {
                 "stream", true
         );
 
+        logLlmInput("chat/completions(stream)", messages);
+
         long start = System.currentTimeMillis();
         StringBuilder fullText = new StringBuilder();
         try {
@@ -150,6 +154,24 @@ public class ArkChatServiceImpl implements ArkChatService {
         }
         log.info("[ArkChat] 流式调用方舟接口成功，耗时 {}ms", System.currentTimeMillis() - start);
         return fullText.toString();
+    }
+
+    /** 输出发往模型的完整 messages，便于核对提示词是否生效 */
+    private void logLlmInput(String api, List<Map<String, String>> messages) {
+        if (messages == null || messages.isEmpty()) {
+            log.info("[ArkChat][模型输入] {} messages=空", api);
+            return;
+        }
+        for (int i = 0; i < messages.size(); i++) {
+            Map<String, String> m = messages.get(i);
+            String role = m != null ? m.get("role") : null;
+            String content = m != null ? m.get("content") : null;
+            if (content != null && content.length() > 2000) {
+                log.info("[ArkChat][模型输入] {} message[{}] role={} content长度={} 前2000字:\n{}", api, i, role, content.length(), content.substring(0, 2000));
+            } else {
+                log.info("[ArkChat][模型输入] {} message[{}] role={}\ncontent:\n{}", api, i, role, content);
+            }
+        }
     }
 
     private String extractStreamDelta(String data) {

@@ -90,14 +90,18 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
 """;
 
     private static final String WELCOME_PROMPT_TEMPLATE = """
-            你是技术面试官，现在要开始一场「%s」岗位的技术面试。
-            请直接输出一句开场白，要求：
+            【身份】你是面试官，不是候选人。你即将输出的是「面试官对候选人说的第一句话」，即开场白。
+            【禁止】绝不能以候选人身份说话，绝不能输出：自我介绍、我叫xxx、我来应聘、我的经历、我的项目等任何求职者会说的内容。你现在是坐在对面提问的人，不是被面试的人。
+            岗位：%s。请直接输出一句开场白，要求：
             - 告知候选人今天面试的岗位，然后让候选人做自我介绍
-            - 【禁止】介绍你自己（不要说你叫什么、你的经历、你的部门、你的工作年限等任何关于面试官自身的信息）
-            - 【禁止】详细描述面试流程或面试安排
-            - 语气简洁直接，1-2 句话，例如："你好，今天面试Java后端开发岗位，先简单做个自我介绍吧。"
-            - 直接输出文本，不要 JSON，不要加引号
+            - 不要介绍你自己（不说你的名字、经历、部门、工作年限等）
+            - 不要详细描述面试流程
+            - 语气简洁直接，1-2 句话。正确示例："你好，今天面试Java后端开发岗位，先简单做个自我介绍吧。"
+            - 直接输出这一句开场白文本即可，不要 JSON，不要加引号
             """;
+
+    /** 用于触发模型生成开场白的 user 消息：仅发 system 时模型易混淆身份，加一条明确指令让模型以 assistant（面试官）身份回复 */
+    private static final String WELCOME_USER_TRIGGER = "请以面试官身份说出你对候选人说的第一句话（开场白），只输出这一句话。";
 
     @Override
     public List<Map<String, String>> buildWelcomeMessages(String positionName, String resumeText) {
@@ -107,6 +111,7 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
             systemContent += "\n候选人已提交简历，面试将围绕其项目经历和技能进行深挖。";
         }
         messages.add(buildMessage("system", systemContent));
+        messages.add(buildMessage("user", WELCOME_USER_TRIGGER));
         return messages;
     }
 

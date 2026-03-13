@@ -43,6 +43,7 @@ const subtitleText = ref('')
 const isVoiceConnecting = ref(false)
 const isRecording = ref(false)
 const pendingInterviewerText = ref('')
+const currentVoiceTurnId = ref<string | null>(null)
 let pendingAudioFallbackTimer: ReturnType<typeof setTimeout> | null = null
 
 const currentStep = ref(1)
@@ -276,7 +277,21 @@ const startVoiceAnswer = async () => {
       return
     }
     pendingInterviewerText.value = ''
-    await audioRecorder.startBuffered()
+    currentVoiceTurnId.value = crypto.randomUUID()
+    await audioRecorder.start((chunk) => {
+      if (!sessionId.value || !voiceWs.isOpen()) return
+      try {
+        voiceWs.sendAudioChunk({
+          sessionId: sessionId.value,
+          data: chunk.base64,
+          format: chunk.format ?? 'pcm',
+          finalChunk: false,
+          clientTurnId: currentVoiceTurnId.value || undefined
+        })
+      } catch (e) {
+        console.warn('voice chunk send failed', e)
+      }
+    })
     isRecording.value = true
   } catch (e: any) {
     ElMessage.error(e?.message || '无法启动录音，请检查麦克风权限')
@@ -285,12 +300,9 @@ const startVoiceAnswer = async () => {
 
 const stopVoiceAnswer = async () => {
   if (!sessionId.value) return
-  const chunk = audioRecorder.stopAndExport()
+  if (!isRecording.value) return
+  audioRecorder.stop()
   isRecording.value = false
-  if (!chunk?.base64) {
-    ElMessage.warning('未采集到语音，请重试')
-    return
-  }
   try {
     const connected = await setupVoiceChannel()
     if (!connected || !voiceWs.isOpen()) {
@@ -299,13 +311,8 @@ const stopVoiceAnswer = async () => {
     }
     isLoading.value = true
     pendingInterviewerText.value = ''
-    voiceWs.sendAudioChunk({
-      sessionId: sessionId.value,
-      data: chunk.base64,
-      format: chunk.format ?? 'pcm',
-      finalChunk: true,
-      clientTurnId: crypto.randomUUID()
-    })
+    voiceWs.commitAudio(sessionId.value, currentVoiceTurnId.value || crypto.randomUUID(), 'pcm')
+    currentVoiceTurnId.value = null
   } catch (e: any) {
     isLoading.value = false
     ElMessage.error(e?.message || '语音发送失败，请重试')

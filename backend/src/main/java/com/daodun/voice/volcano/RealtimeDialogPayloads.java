@@ -42,9 +42,9 @@ public final class RealtimeDialogPayloads {
 
     public static class DialogPayload {
         public String dialog_id = "";
-        public String bot_name = "豆包";
-        public String system_role = "你使用活泼灵动的女声，性格开朗，热爱生活。";
-        public String speaking_style = "你的说话风格简洁明了，语速适中，语调自然。";
+        public String bot_name = "AI面试官";
+        public String system_role = "你是技术面试官，不是候选人。你要基于候选人回答进行追问与提问，始终保持面试官身份。";
+        public String speaking_style = "说话简洁专业、口语化、像真实技术面试现场，不要寒暄和自我介绍。";
         public LocationInfo location = new LocationInfo();
         public Map<String, Object> extra = new HashMap<>();
     }
