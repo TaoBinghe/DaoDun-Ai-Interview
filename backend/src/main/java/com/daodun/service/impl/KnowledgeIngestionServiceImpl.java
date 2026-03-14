@@ -24,6 +24,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static java.util.stream.Collectors.toList;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -45,12 +47,14 @@ public class KnowledgeIngestionServiceImpl implements com.daodun.service.Knowled
             return 0;
         }
         int total = 0;
-        try (Stream<Path> files = Files.list(sourceDir)) {
-            List<Path> mdFiles = files
+        // 递归扫描 sourceDir（含子目录如 knowledge/），使 QAdocs/knowledge/*.md 一并入库
+        try (Stream<Path> walk = Files.walk(sourceDir, 10)) {
+            List<Path> mdFiles = walk
+                    .filter(Files::isRegularFile)
                     .filter(p -> p.toString().endsWith(".md"))
-                    .toList();
+                    .collect(toList());
             for (Path md : mdFiles) {
-                total += ingestMarkdownFile(md.toString());
+                total += ingestMarkdownFile(md.toAbsolutePath().toString());
             }
         } catch (IOException e) {
             log.error("[KnowledgeIngestion] 扫描知识源目录失败: {}", e.getMessage());
@@ -228,7 +232,13 @@ public class KnowledgeIngestionServiceImpl implements com.daodun.service.Knowled
         if (name.contains("java") || name.contains("Java") || name.contains("后端")) {
             return "Java后端开发";
         }
-        if (name.contains("前端") || name.contains("front") || name.contains("web") || name.contains("Web")) {
+        if (name.contains("移动端")) {
+            return "Web前端工程师";
+        }
+        if (name.contains("http") || name.contains("HTTP") || name.contains("面试")) {
+            return "Java后端开发";
+        }
+        if (name.contains("vue") || name.contains("Vue") || name.contains("前端") || name.contains("front") || name.contains("web") || name.contains("Web")) {
             return "Web前端工程师";
         }
         return name;
