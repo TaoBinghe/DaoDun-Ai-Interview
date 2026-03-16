@@ -154,3 +154,9 @@ voice:
     sample-rate: 24000
     enable-timestamp: true
     mock-enabled: false
+
+# 情绪识别服务配置（AffectNet）
+emotion:
+  enabled: true
+  endpoint: ${EMOTION_SERVICE_ENDPOINT:http://localhost:8091/analyze/frame}
+  min-interval-ms: ${EMOTION_MIN_INTERVAL_MS:800}

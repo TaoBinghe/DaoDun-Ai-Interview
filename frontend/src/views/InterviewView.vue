@@ -44,7 +44,18 @@ const isVoiceConnecting = ref(false)
 const isRecording = ref(false)
 const pendingInterviewerText = ref('')
 const currentVoiceTurnId = ref<string | null>(null)
+const recordingStartedAt = ref<number | null>(null)
+const cameraVideoRef = ref<HTMLVideoElement | null>(null)
+const captureCanvasRef = ref<HTMLCanvasElement | null>(null)
+const cameraStream = ref<MediaStream | null>(null)
+const cameraError = ref('')
+const hasFaceDetected = ref(false)
+const emotionStatus = ref('idle')
+const currentEmotion = ref('')
+const currentEmotionConfidence = ref<number | null>(null)
+const welcomeRequestedSessionId = ref<number | null>(null)
 let pendingAudioFallbackTimer: ReturnType<typeof setTimeout> | null = null
+let emotionFrameTimer: ReturnType<typeof setInterval> | null = null
 
 const currentStep = ref(1)
 const selectedPositionId = ref<number | null>(null)
@@ -60,6 +71,14 @@ const selectedResume = computed(() =>
 
 const audioRecorder = new PcmRecorder()
 const voiceWs = new VoiceWebSocketClient()
+const emotionLabelMap: Record<string, string> = {
+  anger: '愤怒',
+  disgust: '厌恶',
+  happy: '高兴',
+  neutral: '中性',
+  sad: '悲伤',
+  surprise: '惊讶'
+}
 
 const appendTurnIfNeeded = (role: 'USER' | 'INTERVIEWER', content: string) => {
   const normalized = content.trim()
@@ -159,10 +178,12 @@ ${previewText}
     }
     const res: any = await request.post('/api/interview/sessions', payload)
     sessionId.value = res.data.sessionId
+    welcomeRequestedSessionId.value = null
     turns.value = res.data.turns || []
     boundResumeName.value = res.data.resumeFileName || selectedResume.value?.fileName || ''
     currentStep.value = 3
     await setupVoiceChannel()
+    await startCameraStream()
     ElMessage.success('面试开始，祝你表现顺利！')
     scrollToBottom()
   } catch (e) {
@@ -184,6 +205,7 @@ const setupVoiceChannel = async () => {
       isVoiceConnecting.value = false
       isLoading.value = false
       pendingInterviewerText.value = ''
+      stopEmotionSampling()
     })
     isVoiceConnecting.value = false
     return true
@@ -197,12 +219,14 @@ const setupVoiceChannel = async () => {
 const onVoiceMessage = async (msg: VoiceServerMessage) => {
   if (msg.type === 'connected') {
     isVoiceConnecting.value = false
-    if (sessionId.value) {
+    if (sessionId.value && welcomeRequestedSessionId.value !== sessionId.value) {
       try {
         isLoading.value = true
+        welcomeRequestedSessionId.value = sessionId.value
         voiceWs.sendPlayWelcome(sessionId.value)
       } catch {
         isLoading.value = false
+        welcomeRequestedSessionId.value = null
       }
     }
     return
@@ -265,6 +289,93 @@ const onVoiceMessage = async (msg: VoiceServerMessage) => {
     } catch (e: any) {
       ElMessage.warning(e?.message || '语音播放失败，请点击页面后重试')
     }
+    return
+  }
+  if (msg.type === 'emotion_status') {
+    emotionStatus.value = msg.status || 'ok'
+    hasFaceDetected.value = !!msg.hasFace
+    currentEmotion.value = msg.emotion || ''
+    currentEmotionConfidence.value = typeof msg.confidence === 'number' ? msg.confidence : null
+  }
+}
+
+const stopEmotionSampling = () => {
+  if (emotionFrameTimer) {
+    clearInterval(emotionFrameTimer)
+    emotionFrameTimer = null
+  }
+}
+
+const stopCameraStream = () => {
+  stopEmotionSampling()
+  if (cameraStream.value) {
+    cameraStream.value.getTracks().forEach((track) => track.stop())
+    cameraStream.value = null
+  }
+  if (cameraVideoRef.value) {
+    cameraVideoRef.value.srcObject = null
+  }
+}
+
+const sendEmotionFrame = () => {
+  if (!sessionId.value || !voiceWs.isOpen()) return
+  const video = cameraVideoRef.value
+  const canvas = captureCanvasRef.value
+  if (!video || !canvas) return
+  if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) return
+
+  const width = 192
+  const height = Math.max(108, Math.round((video.videoHeight / video.videoWidth) * width))
+  canvas.width = width
+  canvas.height = height
+
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  ctx.drawImage(video, 0, 0, width, height)
+
+  try {
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.55)
+    const imageBase64 = dataUrl.includes(',') ? dataUrl.split(',', 2)[1] : dataUrl
+    voiceWs.sendEmotionFrame({
+      sessionId: sessionId.value,
+      imageBase64,
+      capturedAt: Date.now()
+    })
+  } catch (e) {
+    console.warn('emotion frame send failed', e)
+  }
+}
+
+const startEmotionSampling = () => {
+  if (emotionFrameTimer) return
+  emotionFrameTimer = setInterval(() => {
+    sendEmotionFrame()
+  }, 1000)
+}
+
+const startCameraStream = async () => {
+  if (cameraStream.value) return true
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    cameraError.value = '当前浏览器不支持摄像头访问'
+    emotionStatus.value = 'unsupported'
+    return false
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+    cameraStream.value = stream
+    cameraError.value = ''
+    emotionStatus.value = 'ok'
+    await nextTick()
+    if (cameraVideoRef.value) {
+      cameraVideoRef.value.srcObject = stream
+      await cameraVideoRef.value.play().catch(() => {})
+    }
+    startEmotionSampling()
+    return true
+  } catch (e: any) {
+    cameraError.value = e?.message || '无法访问摄像头，请检查权限'
+    emotionStatus.value = 'error'
+    return false
   }
 }
 
@@ -293,6 +404,7 @@ const startVoiceAnswer = async () => {
       }
     })
     isRecording.value = true
+    recordingStartedAt.value = Date.now()
   } catch (e: any) {
     ElMessage.error(e?.message || '无法启动录音，请检查麦克风权限')
   }
@@ -303,6 +415,12 @@ const stopVoiceAnswer = async () => {
   if (!isRecording.value) return
   audioRecorder.stop()
   isRecording.value = false
+  const durationMs = recordingStartedAt.value ? Date.now() - recordingStartedAt.value : 0
+  recordingStartedAt.value = null
+  if (durationMs > 0 && durationMs < 800) {
+    ElMessage.warning('录音时间过短，请至少说 1 秒再停止')
+    return
+  }
   try {
     const connected = await setupVoiceChannel()
     if (!connected || !voiceWs.isOpen()) {
@@ -333,6 +451,8 @@ const handleComplete = async () => {
     ElMessage.success('面试已顺利完成！')
     voiceWs.disconnect()
     audioRecorder.stop()
+    stopCameraStream()
+    welcomeRequestedSessionId.value = null
     router.push('/')
   } catch {
     // 用户取消
@@ -348,6 +468,8 @@ onUnmounted(() => {
   }
   voiceWs.disconnect()
   audioRecorder.stop()
+  stopCameraStream()
+  welcomeRequestedSessionId.value = null
 })
 
 const scrollToBottom = () => {
@@ -363,6 +485,11 @@ const formatTime = (timeStr: string) => {
   const date = new Date(timeStr)
   return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
 }
+
+const emotionDisplay = computed(() => {
+  if (!currentEmotion.value) return '等待识别'
+  return emotionLabelMap[currentEmotion.value] || currentEmotion.value
+})
 </script>
 
 <template>
@@ -450,6 +577,14 @@ const formatTime = (timeStr: string) => {
       </div>
 
       <div v-else class="chat-container">
+        <section class="camera-panel">
+          <video ref="cameraVideoRef" class="camera-preview" autoplay playsinline muted />
+          <canvas ref="captureCanvasRef" class="capture-canvas" />
+          <div class="camera-meta">
+            <span v-if="cameraError" class="camera-error">{{ cameraError }}</span>
+            <span v-else>摄像头已开启，用于实时情绪识别</span>
+          </div>
+        </section>
         <div class="chat-body" ref="chatBody">
           <div
             v-for="(turn, index) in turns"
@@ -488,6 +623,16 @@ const formatTime = (timeStr: string) => {
         </div>
 
         <footer class="chat-footer">
+          <div class="emotion-status">
+            <el-tag size="large" :type="hasFaceDetected ? 'success' : 'warning'">
+              {{ hasFaceDetected ? '检测到人脸' : '未检测到人脸' }}
+            </el-tag>
+            <span class="emotion-text">当前情绪：{{ emotionDisplay }}</span>
+            <span class="emotion-text" v-if="currentEmotionConfidence !== null">
+              置信度：{{ (currentEmotionConfidence * 100).toFixed(1) }}%
+            </span>
+            <span class="emotion-text" v-if="emotionStatus === 'error'">情绪服务暂不可用</span>
+          </div>
           <div class="input-wrapper">
             <VoiceControls
               :recording="isRecording"
@@ -669,6 +814,33 @@ const formatTime = (timeStr: string) => {
   background: #1e1e1e;
 }
 
+.camera-panel {
+  padding: 12px 20px 0;
+}
+
+.camera-preview {
+  width: 220px;
+  height: 124px;
+  border-radius: 8px;
+  border: 1px solid #dcdfe6;
+  object-fit: cover;
+  background: #111;
+}
+
+.capture-canvas {
+  display: none;
+}
+
+.camera-meta {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #909399;
+}
+
+.camera-error {
+  color: #ef4444;
+}
+
 .chat-body {
   flex: 1;
   padding: 20px;
@@ -773,6 +945,23 @@ const formatTime = (timeStr: string) => {
 .chat-footer {
   padding: 20px;
   border-top: 1px solid #ebeef5;
+}
+
+.emotion-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.emotion-text {
+  font-size: 13px;
+  color: #606266;
+}
+
+.is-dark .emotion-text {
+  color: #9ca3af;
 }
 
 .is-dark .chat-footer {

@@ -4,6 +4,11 @@ export interface VoiceServerMessage {
   data?: string
   mimeType?: string
   isFinal?: boolean
+  emotion?: string
+  confidence?: number
+  hasFace?: boolean
+  capturedAt?: number
+  status?: string
 }
 
 interface SendAudioPayload {
@@ -19,6 +24,12 @@ interface SendTextPayload {
   sessionId: number
   content: string
   clientTurnId?: string
+}
+
+interface SendEmotionFramePayload {
+  sessionId: number
+  imageBase64: string
+  capturedAt?: number
 }
 
 export class VoiceWebSocketClient {
@@ -114,6 +125,13 @@ export class VoiceWebSocketClient {
 
   sendPlayWelcome(sessionId: number): void {
     this.send({ type: 'play_welcome', sessionId })
+  }
+
+  sendEmotionFrame(payload: SendEmotionFramePayload): void {
+    this.send({
+      type: 'emotion_frame',
+      ...payload
+    })
   }
 
   private send(payload: object): void {

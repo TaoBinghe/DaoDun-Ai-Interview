@@ -1,17 +1,12 @@
-package com.daodun.dto.voice;
+package com.daodun.service.model;
 
 import lombok.Builder;
 import lombok.Data;
 
 @Data
 @Builder
-public class VoiceOutboundMessage {
+public class EmotionAnalysisResult {
 
-    private String type;
-    private String content;
-    private String data;
-    private String mimeType;
-    private Boolean isFinal;
     private String emotion;
     private Double confidence;
     private Boolean hasFace;

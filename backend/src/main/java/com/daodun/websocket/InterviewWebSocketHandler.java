@@ -1,15 +1,18 @@
 package com.daodun.websocket;
 
 import com.daodun.common.BusinessException;
+import com.daodun.config.EmotionProperties;
 import com.daodun.config.VoiceProperties;
 import com.daodun.dto.interview.PostTurnRequest;
 import com.daodun.dto.interview.PostTurnResponse;
 import com.daodun.dto.voice.TtsResult;
 import com.daodun.dto.voice.VoiceInboundMessage;
 import com.daodun.dto.voice.VoiceOutboundMessage;
+import com.daodun.service.EmotionAnalysisService;
 import com.daodun.service.InterviewService;
 import com.daodun.service.VoiceRecognitionService;
 import com.daodun.service.VoiceSynthesisService;
+import com.daodun.service.model.EmotionAnalysisResult;
 import com.daodun.voice.volcano.OpenspeechAsrV2StreamingClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -35,10 +38,14 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
     private final InterviewService interviewService;
     private final VoiceRecognitionService voiceRecognitionService;
     private final VoiceSynthesisService voiceSynthesisService;
+    private final EmotionAnalysisService emotionAnalysisService;
+    private final EmotionProperties emotionProperties;
 
     private final Map<String, ByteArrayOutputStream> audioBuffers = new ConcurrentHashMap<>();
     /** 流式 ASR (api/v2/asr)：按 WebSocket session 维护，边说边上传到识别服务 */
     private final Map<String, OpenspeechAsrV2StreamingClient> asrStreamingClients = new ConcurrentHashMap<>();
+    /** 情绪识别节流：按 wsSessionId 记录上次分析时间 */
+    private final Map<String, Long> emotionFrameTimestamps = new ConcurrentHashMap<>();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -59,6 +66,7 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
             case "audio_commit" -> onAudioCommit(session, in);
             case "text_answer" -> onTextAnswer(session, in);
             case "play_welcome" -> onPlayWelcome(session, in);
+            case "emotion_frame" -> onEmotionFrame(session, in);
             case "ping" -> send(session, VoiceOutboundMessage.builder().type("pong").isFinal(true).build());
             default -> send(session, VoiceOutboundMessage.builder()
                     .type("error")
@@ -75,6 +83,7 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
         audioBuffers.remove(session.getId());
         OpenspeechAsrV2StreamingClient asr = asrStreamingClients.remove(session.getId());
         if (asr != null) asr.close();
+        emotionFrameTimestamps.remove(session.getId());
     }
 
     private void onAudioChunk(WebSocketSession session, VoiceInboundMessage in) throws Exception {
@@ -271,6 +280,34 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
                     .isFinal(true)
                     .build());
         }
+    }
+
+    private void onEmotionFrame(WebSocketSession session, VoiceInboundMessage in) throws Exception {
+        Long userId = (Long) session.getAttributes().get("userId");
+        if (userId == null || in.getSessionId() == null) {
+            return;
+        }
+        String imageBase64 = in.getImageBase64();
+        if (imageBase64 == null || imageBase64.isBlank()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        Long lastTs = emotionFrameTimestamps.get(session.getId());
+        long minIntervalMs = Math.max(200L, emotionProperties.getMinIntervalMs());
+        if (lastTs != null && now - lastTs < minIntervalMs) {
+            return;
+        }
+        emotionFrameTimestamps.put(session.getId(), now);
+        EmotionAnalysisResult analysis = emotionAnalysisService.analyzeFrame(in.getSessionId(), imageBase64, in.getCapturedAt());
+        send(session, VoiceOutboundMessage.builder()
+                .type("emotion_status")
+                .emotion(analysis.getEmotion())
+                .confidence(analysis.getConfidence())
+                .hasFace(analysis.getHasFace())
+                .capturedAt(analysis.getCapturedAt())
+                .status(analysis.getStatus())
+                .isFinal(true)
+                .build());
     }
 
     private void pushTts(WebSocketSession session, String reply) throws Exception {
