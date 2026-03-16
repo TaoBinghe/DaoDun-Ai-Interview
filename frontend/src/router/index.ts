@@ -27,6 +27,11 @@ const router = createRouter({
       path: '/knowledge-verify',
       name: 'knowledgeVerify',
       component: () => import('../views/KnowledgeVerifyView.vue')
+    },
+    {
+      path: '/interview/result/:sessionId',
+      name: 'interviewResult',
+      component: () => import('../views/InterviewResultView.vue')
     }
   ],
 })

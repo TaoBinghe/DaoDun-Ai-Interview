@@ -1,6 +1,8 @@
 package com.daodun.service;
 
+import com.daodun.dto.interview.CompleteSessionRequest;
 import com.daodun.dto.interview.CreateSessionRequest;
+import com.daodun.dto.interview.EvaluationReportResponse;
 import com.daodun.dto.interview.PostTurnRequest;
 import com.daodun.dto.interview.PostTurnResponse;
 import com.daodun.dto.interview.SessionDetailResponse;
@@ -49,8 +51,15 @@ public interface InterviewService {
     /**
      * 结束面试会话（状态机：IN_PROGRESS -> COMPLETED）。
      * 幂等：已结束的会话重复调用返回成功。
+     * 若请求中携带情绪时间线，则一并存储并异步触发评估报告生成。
      */
-    void completeSession(Long userId, Long sessionId);
+    void completeSession(Long userId, Long sessionId, CompleteSessionRequest request);
+
+    /**
+     * 获取面试评估报告。
+     * status=GENERATING 表示生成中，前端可轮询；status=READY 表示已就绪。
+     */
+    EvaluationReportResponse getEvaluation(Long userId, Long sessionId);
 
     /**
      * 查询当前用户的所有会话摘要（按开始时间倒序）。

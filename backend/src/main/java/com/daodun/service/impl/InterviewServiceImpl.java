@@ -15,9 +15,12 @@ import com.daodun.repository.PositionRepository;
 import com.daodun.repository.QuestionRepository;
 import com.daodun.repository.UserResumeRepository;
 import com.daodun.service.ArkChatService;
+import com.daodun.service.EvaluationService;
 import com.daodun.service.InterviewPromptService;
 import com.daodun.service.InterviewService;
 import com.daodun.service.KnowledgeRetrievalService;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -47,6 +50,8 @@ public class InterviewServiceImpl implements InterviewService {
     private final InterviewPromptService promptService;
     private final KnowledgeRetrievalService knowledgeRetrievalService;
     private final RagProperties ragProperties;
+    private final EvaluationService evaluationService;
+    private final ObjectMapper objectMapper;
     private final SecureRandom secureRandom = new SecureRandom();
 
     // ─────────────────────────────────────────────────────────────
@@ -306,7 +311,7 @@ public class InterviewServiceImpl implements InterviewService {
 
     @Override
     @Transactional
-    public void completeSession(Long userId, Long sessionId) {
+    public void completeSession(Long userId, Long sessionId, CompleteSessionRequest request) {
         InterviewSession session = requireSession(sessionId);
         requireOwner(session, userId);
 
@@ -315,10 +320,87 @@ public class InterviewServiceImpl implements InterviewService {
             return;
         }
 
+        // 保存情绪时间线
+        if (request != null && request.getEmotionTimeline() != null && !request.getEmotionTimeline().isEmpty()) {
+            try {
+                String timelineJson = objectMapper.writeValueAsString(request.getEmotionTimeline());
+                session.setEmotionTimeline(timelineJson);
+                log.info("[Interview] 存储情绪时间线 sessionId={} events={}", sessionId,
+                        request.getEmotionTimeline().size());
+            } catch (Exception e) {
+                log.warn("[Interview] 序列化情绪时间线失败 sessionId={}: {}", sessionId, e.getMessage());
+            }
+        }
+
         session.setStatus(InterviewSession.Status.COMPLETED);
         session.setEndTime(LocalDateTime.now());
         sessionRepository.save(session);
         log.info("[Interview] 会话结束 sessionId={} userId={}", sessionId, userId);
+
+        // 异步触发评估报告生成
+        evaluationService.generateAsync(sessionId);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  获取评估报告
+    // ─────────────────────────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public EvaluationReportResponse getEvaluation(Long userId, Long sessionId) {
+        InterviewSession session = requireSession(sessionId);
+        requireOwner(session, userId);
+
+        if (session.getStatus() != InterviewSession.Status.COMPLETED) {
+            return EvaluationReportResponse.builder()
+                    .sessionId(sessionId)
+                    .status(EvaluationReportResponse.Status.NOT_STARTED)
+                    .build();
+        }
+
+        String reportJson = session.getEvaluationReport();
+        if (reportJson == null || reportJson.isBlank()) {
+            return EvaluationReportResponse.builder()
+                    .sessionId(sessionId)
+                    .status(EvaluationReportResponse.Status.GENERATING)
+                    .build();
+        }
+
+        // 解析状态标记
+        try {
+            JsonNode node = objectMapper.readTree(reportJson);
+            JsonNode statusNode = node.get("status");
+            if (statusNode != null) {
+                String statusVal = statusNode.asText();
+                if ("GENERATING".equals(statusVal)) {
+                    return EvaluationReportResponse.builder()
+                            .sessionId(sessionId)
+                            .status(EvaluationReportResponse.Status.GENERATING)
+                            .build();
+                }
+                if ("FAILED".equals(statusVal)) {
+                    return EvaluationReportResponse.builder()
+                            .sessionId(sessionId)
+                            .status(EvaluationReportResponse.Status.FAILED)
+                            .build();
+                }
+            }
+
+            // 正常报告 JSON，反序列化 Report
+            EvaluationReportResponse.Report report =
+                    objectMapper.treeToValue(node, EvaluationReportResponse.Report.class);
+            return EvaluationReportResponse.builder()
+                    .sessionId(sessionId)
+                    .status(EvaluationReportResponse.Status.READY)
+                    .report(report)
+                    .build();
+        } catch (Exception e) {
+            log.warn("[Interview] 解析评估报告JSON失败 sessionId={}: {}", sessionId, e.getMessage());
+            return EvaluationReportResponse.builder()
+                    .sessionId(sessionId)
+                    .status(EvaluationReportResponse.Status.FAILED)
+                    .build();
+        }
     }
 
     // ─────────────────────────────────────────────────────────────

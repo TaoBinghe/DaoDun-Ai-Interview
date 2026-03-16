@@ -63,6 +63,14 @@ public class InterviewSession {
     @Column(name = "end_time")
     private LocalDateTime endTime;
 
+    /** 面试情绪时间线（JSON数组，由前端在结束时上报） */
+    @Column(name = "emotion_timeline", columnDefinition = "TEXT")
+    private String emotionTimeline;
+
+    /** AI综合评估报告（JSON，由异步任务生成后填入，null表示未生成） */
+    @Column(name = "evaluation_report", columnDefinition = "TEXT")
+    private String evaluationReport;
+
     @Column(name = "create_time", updatable = false)
     private LocalDateTime createTime;
 

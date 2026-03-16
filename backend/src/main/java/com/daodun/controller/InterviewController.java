@@ -60,14 +60,29 @@ public class InterviewController {
 
     /**
      * 结束面试会话（IN_PROGRESS -> COMPLETED，幂等）。
+     * 可携带情绪时间线，将触发异步AI评估报告生成。
      * PATCH /api/interview/sessions/{id}/complete
      */
     @PatchMapping("/sessions/{id}/complete")
-    public R<Void> completeSession(@PathVariable Long id) {
+    public R<Void> completeSession(@PathVariable Long id,
+                                   @RequestBody(required = false) CompleteSessionRequest request) {
         Long userId = currentUserId();
-        log.info("[InterviewController] completeSession userId={} sessionId={}", userId, id);
-        interviewService.completeSession(userId, id);
+        log.info("[InterviewController] completeSession userId={} sessionId={} hasTimeline={}",
+                userId, id, request != null && request.getEmotionTimeline() != null);
+        interviewService.completeSession(userId, id, request);
         return R.ok("面试已结束", null);
+    }
+
+    /**
+     * 获取面试评估报告。
+     * status=GENERATING 表示生成中，前端可每隔3秒轮询；status=READY 表示已就绪。
+     * GET /api/interview/sessions/{id}/evaluation
+     */
+    @GetMapping("/sessions/{id}/evaluation")
+    public R<EvaluationReportResponse> getEvaluation(@PathVariable Long id) {
+        Long userId = currentUserId();
+        log.info("[InterviewController] getEvaluation userId={} sessionId={}", userId, id);
+        return R.ok(interviewService.getEvaluation(userId, id));
     }
 
     /**

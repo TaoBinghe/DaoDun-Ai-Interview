@@ -54,6 +54,16 @@ const emotionStatus = ref('idle')
 const currentEmotion = ref('')
 const currentEmotionConfidence = ref<number | null>(null)
 const welcomeRequestedSessionId = ref<number | null>(null)
+
+// 情绪时间线累积
+interface EmotionEvent {
+  timestamp: number
+  emotion: string
+  confidence: number
+}
+const emotionEvents = ref<EmotionEvent[]>([])
+let interviewStartTime = 0
+
 let pendingAudioFallbackTimer: ReturnType<typeof setTimeout> | null = null
 let emotionFrameTimer: ReturnType<typeof setInterval> | null = null
 
@@ -72,12 +82,12 @@ const selectedResume = computed(() =>
 const audioRecorder = new PcmRecorder()
 const voiceWs = new VoiceWebSocketClient()
 const emotionLabelMap: Record<string, string> = {
-  anger: '愤怒',
-  disgust: '厌恶',
-  happy: '高兴',
-  neutral: '中性',
-  sad: '悲伤',
-  surprise: '惊讶'
+  anger: '抵触/压力',
+  disgust: '反感',
+  happy: '自信/放松',
+  neutral: '专注',
+  sad: '略显低落/思考中',
+  surprise: '意外'
 }
 
 const appendTurnIfNeeded = (role: 'USER' | 'INTERVIEWER', content: string) => {
@@ -181,6 +191,8 @@ ${previewText}
     welcomeRequestedSessionId.value = null
     turns.value = res.data.turns || []
     boundResumeName.value = res.data.resumeFileName || selectedResume.value?.fileName || ''
+    emotionEvents.value = []
+    interviewStartTime = Date.now()
     currentStep.value = 3
     await setupVoiceChannel()
     await startCameraStream()
@@ -294,8 +306,20 @@ const onVoiceMessage = async (msg: VoiceServerMessage) => {
   if (msg.type === 'emotion_status') {
     emotionStatus.value = msg.status || 'ok'
     hasFaceDetected.value = !!msg.hasFace
-    currentEmotion.value = msg.emotion || ''
-    currentEmotionConfidence.value = typeof msg.confidence === 'number' ? msg.confidence : null
+    const newEmotion = msg.emotion || ''
+    const newConf = typeof msg.confidence === 'number' ? msg.confidence : null
+    // 情绪发生变化时才记录（避免重复无意义记录），最多保留500条
+    if (newEmotion && newEmotion !== currentEmotion.value && newConf !== null) {
+      if (emotionEvents.value.length < 500) {
+        emotionEvents.value.push({
+          timestamp: interviewStartTime > 0 ? Date.now() - interviewStartTime : 0,
+          emotion: newEmotion,
+          confidence: newConf
+        })
+      }
+    }
+    currentEmotion.value = newEmotion
+    currentEmotionConfidence.value = newConf
   }
 }
 
@@ -447,13 +471,17 @@ const handleComplete = async () => {
       type: 'warning'
     })
     isEnding.value = true
-    await request.patch(`/api/interview/sessions/${sessionId.value}/complete`)
-    ElMessage.success('面试已顺利完成！')
+    const completedSessionId = sessionId.value
+    const payload = emotionEvents.value.length > 0
+      ? { emotionTimeline: emotionEvents.value }
+      : undefined
+    await request.patch(`/api/interview/sessions/${completedSessionId}/complete`, payload)
+    ElMessage.success('面试已完成，正在生成评估报告...')
     voiceWs.disconnect()
     audioRecorder.stop()
     stopCameraStream()
     welcomeRequestedSessionId.value = null
-    router.push('/')
+    router.push(`/interview/result/${completedSessionId}`)
   } catch {
     // 用户取消
   } finally {

@@ -5,9 +5,13 @@ import com.daodun.dto.interview.CreateSessionRequest;
 import com.daodun.dto.interview.PostTurnRequest;
 import com.daodun.entity.*;
 import com.daodun.repository.*;
+import com.daodun.config.RagProperties;
 import com.daodun.service.ArkChatService;
+import com.daodun.service.EvaluationService;
 import com.daodun.service.InterviewPromptService;
+import com.daodun.service.KnowledgeRetrievalService;
 import com.daodun.service.impl.InterviewServiceImpl;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,8 +38,13 @@ class InterviewServiceStateMachineTest {
     @Mock private InterviewTurnRepository turnRepository;
     @Mock private PositionRepository positionRepository;
     @Mock private QuestionRepository questionRepository;
+    @Mock private UserResumeRepository userResumeRepository;
     @Mock private ArkChatService arkChatService;
     @Mock private InterviewPromptService promptService;
+    @Mock private KnowledgeRetrievalService knowledgeRetrievalService;
+    @Mock private RagProperties ragProperties;
+    @Mock private EvaluationService evaluationService;
+    @Mock private ObjectMapper objectMapper;
 
     @InjectMocks
     private InterviewServiceImpl interviewService;
@@ -76,7 +85,7 @@ class InterviewServiceStateMachineTest {
         when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(completed));
 
         // 不应抛异常
-        interviewService.completeSession(USER_A, SESSION_ID);
+        interviewService.completeSession(USER_A, SESSION_ID, null);
         // save 不应被调用（因为已结束）
         verify(sessionRepository, never()).save(any());
     }
@@ -120,7 +129,7 @@ class InterviewServiceStateMachineTest {
         InterviewSession sessionOfA = buildSession(USER_A, InterviewSession.Status.IN_PROGRESS);
         when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(sessionOfA));
 
-        assertThatThrownBy(() -> interviewService.completeSession(USER_B, SESSION_ID))
+        assertThatThrownBy(() -> interviewService.completeSession(USER_B, SESSION_ID, null))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> {
                     BusinessException be = (BusinessException) ex;

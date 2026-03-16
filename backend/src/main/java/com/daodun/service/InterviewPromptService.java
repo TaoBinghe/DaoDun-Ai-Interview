@@ -6,6 +6,7 @@ import com.daodun.entity.KnowledgeChunk;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 负责面试 Prompt 的组装与 LLM 结构化输出的解析。
@@ -41,4 +42,17 @@ public interface InterviewPromptService {
      * 输入为题库题干（主题），输出为面试官向候选人提问时说的那一句话（禁止照抄题干）。
      */
     List<Map<String, String>> buildRephraseQuestionMessages(String questionTheme);
+
+    /**
+     * 构造面试结束后 AI 综合评估的 messages 列表。
+     *
+     * @param positionName    应聘岗位名称
+     * @param turns           全部对话轮次（含 INTERVIEWER/USER）
+     * @param resumeText      候选人简历文本摘要（可为 null）
+     * @param emotionTimeline 情绪时间线 JSON 字符串（可为 null）
+     */
+    List<Map<String, String>> buildEvaluationMessages(String positionName,
+                                                      List<InterviewTurn> turns,
+                                                      Optional<String> resumeText,
+                                                      Optional<String> emotionTimeline);
 }

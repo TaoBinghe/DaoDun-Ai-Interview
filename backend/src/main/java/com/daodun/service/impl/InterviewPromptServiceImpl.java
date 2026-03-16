@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -256,6 +257,88 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
         d.setAction("follow_up");
         d.setNextDifficulty(1);
         return d;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  面试结束后综合评估 Prompt
+    // ─────────────────────────────────────────────────────────────
+
+    private static final String EVALUATION_SYSTEM_PROMPT = """
+            你是一位资深技术面试评估专家，拥有丰富的大厂面试经验。请根据下面提供的面试对话记录和候选人情绪时间线，对候选人进行全面客观的综合评估。
+
+            评估维度：
+            1. 【知识积累评估】分析候选人在各技术考点上的表现，指出哪里回答扎实、哪里存在明显不足，覆盖所有被考察的技术点。
+            2. 【情绪状态评估】根据情绪时间线，评估候选人全程的情绪表现，肯定良好的情绪状态，详细指出不良情绪（如持续紧张、抵触、略显低落等）及其发生阶段。
+            3. 【综合建议】分别给出学习提升建议（具体可执行的学习方向）和情绪管理建议（实际可操作的方法）。
+
+            输出要求：
+            - 必须严格以如下 JSON 格式输出，不含任何多余文字：
+            {
+              "overallScore": <0-100的整数，综合评分>,
+              "overallComment": "<2-3句总体评语，客观公正>",
+              "knowledgeAssessment": {
+                "strengths": ["<优点1>", "<优点2>"],
+                "weaknesses": ["<不足1>", "<不足2>"],
+                "topicDetails": [
+                  {"topic": "<考点名称>", "rating": "good|fair|poor", "comment": "<该考点的具体评价>"}
+                ]
+              },
+              "emotionAssessment": {
+                "summary": "<情绪总体描述，1-2句>",
+                "positives": ["<积极情绪表现1>"],
+                "issues": ["<情绪问题1，包含发生的面试阶段>"]
+              },
+              "recommendations": {
+                "learning": ["<学习建议1（具体可执行）>", "<学习建议2>"],
+                "emotional": ["<情绪管理建议1（可操作）>", "<情绪管理建议2>"]
+              }
+            }
+
+            评分标准：
+            - 90-100：基础扎实，项目经验丰富，表达清晰，情绪稳定自信
+            - 70-89：大部分考点掌握良好，有个别不足，整体表现正常
+            - 50-69：基础一般，部分考点较为薄弱，需要加强
+            - 30-49：多个核心考点掌握不足，基础有较大缺口
+            - 0-29：基础薄弱，大部分考点无法答到要点
+            """;
+
+    @Override
+    public List<Map<String, String>> buildEvaluationMessages(String positionName,
+                                                              List<InterviewTurn> turns,
+                                                              Optional<String> resumeText,
+                                                              Optional<String> emotionTimeline) {
+        List<Map<String, String>> messages = new ArrayList<>();
+        messages.add(buildMessage("system", EVALUATION_SYSTEM_PROMPT));
+
+        StringBuilder userContent = new StringBuilder();
+        userContent.append("【应聘岗位】").append(positionName).append("\n\n");
+
+        resumeText.filter(t -> !t.isBlank()).ifPresent(rt ->
+                userContent.append("【候选人简历摘要】\n").append(rt).append("\n\n")
+        );
+
+        userContent.append("【面试对话记录】\n");
+        for (InterviewTurn turn : turns) {
+            String roleLabel = turn.getRole() == InterviewTurn.Role.INTERVIEWER ? "面试官" : "候选人";
+            String typeLabel = "";
+            if (turn.getMessageType() == InterviewTurn.MessageType.QUESTION) {
+                typeLabel = "[新题]";
+            } else if (turn.getMessageType() == InterviewTurn.MessageType.FOLLOW_UP) {
+                typeLabel = "[追问/过渡]";
+            }
+            userContent.append(roleLabel).append(typeLabel).append("：")
+                    .append(turn.getContent() != null ? turn.getContent() : "").append("\n");
+        }
+
+        emotionTimeline.filter(t -> !t.isBlank()).ifPresent(et ->
+                userContent.append("\n【情绪时间线（JSON格式，timestamp为相对开始的毫秒数，emotion为情绪标签，confidence为置信度）】\n")
+                        .append(et).append("\n")
+                        .append("情绪标签含义：neutral=专注/平静, happy=自信/放松, anger=紧张/抵触, sad=略显低落或思考中, surprise=意外, disgust=反感\n")
+        );
+
+        userContent.append("\n请根据以上信息，按照系统要求的 JSON 格式输出完整评估报告。");
+        messages.add(buildMessage("user", userContent.toString()));
+        return messages;
     }
 
     private Map<String, String> buildMessage(String role, String content) {
