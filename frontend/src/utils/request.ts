@@ -17,7 +17,7 @@ function doRefresh(): Promise<string> {
     return Promise.reject(new Error('请重新登录'))
   }
   return axios
-    .post<{ code: number; msg?: string; data?: { accessToken: string } }>(
+    .post<{ code: number; msg?: string; data?: { accessToken: string; refreshToken?: string } }>(
       'http://localhost:8081/api/auth/refresh',
       { refreshToken }
     )

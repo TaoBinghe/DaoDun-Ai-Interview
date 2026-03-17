@@ -24,12 +24,9 @@ export const useUserStore = defineStore('user', () => {
   /** 从服务端拉取当前用户信息（需已登录） */
   async function fetchUser() {
     try {
-      const res = await request.get<{ data: UserInfo }>('/api/user/me')
-      const info = res?.data
-      if (info) {
-        user.value = info
-        return info
-      }
+      const res = await request.get('/api/user/me') as { code: number; data?: UserInfo }
+      user.value = res?.data ?? null
+      return user.value
     } catch {
       clearUser()
     }
