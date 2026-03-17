@@ -14,6 +14,11 @@ const router = createRouter({
       component: () => import('../views/HomeView.vue')
     },
     {
+      path: '/profile',
+      name: 'profile',
+      component: () => import('../views/ProfileView.vue')
+    },
+    {
       path: '/interview',
       name: 'interview',
       component: () => import('../views/InterviewView.vue')
@@ -32,6 +37,11 @@ const router = createRouter({
       path: '/interview/result/:sessionId',
       name: 'interviewResult',
       component: () => import('../views/InterviewResultView.vue')
+    },
+    {
+      path: '/card-nav-test',
+      name: 'cardNavTest',
+      component: () => import('../component/CardNav/Index.vue')
     }
   ],
 })

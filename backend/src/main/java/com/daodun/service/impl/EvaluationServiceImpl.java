@@ -39,6 +39,20 @@ public class EvaluationServiceImpl implements EvaluationService {
     private static final String STATUS_GENERATING = "{\"status\":\"GENERATING\"}";
     /** 标记评估生成失败的占位 JSON */
     private static final String STATUS_FAILED = "{\"status\":\"FAILED\"}";
+    /** 对话过少无法生成报告时的占位 JSON（含提示信息） */
+    private static final String STATUS_INSUFFICIENT_DATA =
+            "{\"status\":\"INSUFFICIENT_DATA\",\"message\":\"本次面试对话轮次过少，无法生成完整评估报告。建议至少进行几轮问答后再结束面试。\"}";
+
+    /**
+     * 仅更新 session 的 evaluation_report 字段。每次更新前重新加载 session 以拿到最新 version，
+     * 避免与 completeSession 等其它事务的乐观锁冲突。
+     */
+    private void updateSessionReport(Long sessionId, String reportJson) {
+        InterviewSession s = sessionRepository.findById(sessionId).orElse(null);
+        if (s == null) return;
+        s.setEvaluationReport(reportJson);
+        sessionRepository.save(s);
+    }
 
     @Async
     @Override
@@ -52,18 +66,16 @@ public class EvaluationServiceImpl implements EvaluationService {
             return;
         }
 
-        // 写入 GENERATING 占位，让前端轮询能看到"生成中"状态
-        session.setEvaluationReport(STATUS_GENERATING);
-        sessionRepository.save(session);
+        // 写入 GENERATING 占位（重新加载再保存，避免乐观锁冲突）
+        updateSessionReport(sessionId, STATUS_GENERATING);
 
         try {
             Position position = positionRepository.findById(session.getPositionId()).orElseThrow();
             List<InterviewTurn> turns = turnRepository.findBySessionIdOrderByTurnIndexAsc(sessionId);
 
             if (turns.isEmpty()) {
-                log.warn("[Evaluation] 会话无对话记录，跳过评估 sessionId={}", sessionId);
-                session.setEvaluationReport(STATUS_FAILED);
-                sessionRepository.save(session);
+                log.warn("[Evaluation] 会话无对话记录，标记为信息不足 sessionId={}", sessionId);
+                updateSessionReport(sessionId, STATUS_INSUFFICIENT_DATA);
                 return;
             }
 
@@ -85,15 +97,13 @@ public class EvaluationServiceImpl implements EvaluationService {
                     rawReport != null ? rawReport.length() : 0);
 
             String reportJson = extractAndValidateJson(rawReport, sessionId);
-            session.setEvaluationReport(reportJson);
-            sessionRepository.save(session);
+            updateSessionReport(sessionId, reportJson);
             log.info("[Evaluation] 评估报告生成并存储完成 sessionId={}", sessionId);
 
         } catch (Exception e) {
             log.error("[Evaluation] 生成评估报告异常 sessionId={}: {}", sessionId, e.getMessage(), e);
             try {
-                session.setEvaluationReport(STATUS_FAILED);
-                sessionRepository.save(session);
+                updateSessionReport(sessionId, STATUS_FAILED);
             } catch (Exception ex) {
                 log.error("[Evaluation] 存储FAILED状态也失败 sessionId={}: {}", sessionId, ex.getMessage());
             }

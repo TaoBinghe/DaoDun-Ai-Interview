@@ -1,185 +1,311 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useDark, useToggle } from '@vueuse/core'
-import { Sunny, Moon } from '@element-plus/icons-vue'
+import { onMounted, ref } from 'vue'
+import { useDark } from '@vueuse/core'
+import { Microphone, Document, Reading, DataLine } from '@element-plus/icons-vue'
 import { useUserStore } from '../stores/user'
 
-const router = useRouter()
 const userStore = useUserStore()
 const isDark = useDark()
-const toggleDark = useToggle(isDark)
+const heroLoaded = ref(false)
+const cardsLoaded = ref(false)
 
 onMounted(() => {
   if (!userStore.user) {
     userStore.fetchUser()
   }
+  // 分阶段触发动画
+  requestAnimationFrame(() => {
+    heroLoaded.value = true
+  })
+  setTimeout(() => {
+    cardsLoaded.value = true
+  }, 200)
 })
 
-const handleLogout = () => {
-  localStorage.removeItem('accessToken')
-  localStorage.removeItem('refreshToken')
-  userStore.clearUser()
-  router.push('/login')
-}
+// 8pt 网格特性卡片
+const features = [
+  {
+    icon: Microphone,
+    title: 'AI 语音面试',
+    desc: '实时语音交互，模拟真实面试场景',
+    delay: 0
+  },
+  {
+    icon: Document,
+    title: '简历智能分析',
+    desc: '上传简历后，AI 将针对性提问',
+    delay: 1
+  },
+  {
+    icon: Reading,
+    title: '知识库验证',
+    desc: '验证技术栈掌握程度',
+    delay: 2
+  },
+  {
+    icon: DataLine,
+    title: '多维评估报告',
+    desc: '专业知识与情绪表现全面分析',
+    delay: 3
+  }
+]
 </script>
 
 <template>
-  <div class="home-container" :class="{ 'is-dark': isDark }">
-    <el-header class="app-header">
-      <div class="header-left">
-        <h2>AI 面试平台控制台</h2>
+  <div class="home" :class="{ 'is-dark': isDark }">
+    <!-- Hero 区域 -->
+    <section class="hero">
+      <div class="hero-bg" />
+      <div class="hero-content" :class="{ 'is-visible': heroLoaded }">
+        <p class="hero-greeting">
+          欢迎回来{{ userStore.user ? `，${userStore.user.username}` : '' }}
+        </p>
+        <h2 class="hero-title">
+          智能面试 · 精准提升
+        </h2>
+        <p class="hero-desc">
+          AI 面试官将根据您的简历与知识库，进行针对性提问与评估，
+          <br />
+          助您在真实面试中脱颖而出。
+        </p>
       </div>
-      <div class="header-right">
-        <span v-if="userStore.user" class="username">{{ userStore.user.username }}</span>
-        <el-button type="danger" plain @click="handleLogout">退出登录</el-button>
-      </div>
-    </el-header>
+    </section>
 
-    <el-main class="app-main">
-      <el-card class="welcome-card" shadow="never">
-        <template #header>
-          <div class="card-header">
-            <span>欢迎回来{{ userStore.user ? `，${userStore.user.username}` : '' }}</span>
+    <!-- 特性卡片 -->
+    <section class="features">
+      <div class="features-grid" :class="{ 'is-visible': cardsLoaded }">
+        <div
+          v-for="(item, index) in features"
+          :key="index"
+          class="feature-card"
+          :style="{ animationDelay: `${item.delay * 80}ms` }"
+        >
+          <div class="feature-icon">
+            <component :is="item.icon" />
           </div>
-        </template>
-        <div class="welcome-content">
-          <p>您已成功登录系统。</p>
-          <p>上传简历后，AI 面试官会先阅读你的项目经历和技术栈，再进行更有针对性的提问。</p>
-          
-          <div class="action-buttons">
-            <el-button type="primary" size="large" @click="router.push('/interview')">开始模拟面试</el-button>
-            <el-button size="large" @click="router.push('/resume')">简历管理</el-button>
-            <el-button size="large" @click="router.push('/knowledge-verify')">知识库验证</el-button>
-            <el-button size="large">查看历史记录</el-button>
-          </div>
+          <h3 class="feature-title">{{ item.title }}</h3>
+          <p class="feature-desc">{{ item.desc }}</p>
         </div>
-      </el-card>
-    </el-main>
+      </div>
+    </section>
 
-    <div class="theme-switch-fixed">
-      <el-switch
-        v-model="isDark"
-        :active-icon="Moon"
-        :inactive-icon="Sunny"
-        inline-prompt
-        style="--el-switch-on-color: #2c2c2c; --el-switch-off-color: #10b981"
-      />
-    </div>
+    <!-- 底部 CTA 区域 -->
+    <section class="cta">
+      <div class="cta-card" :class="{ 'is-visible': cardsLoaded }">
+        <p class="cta-hint">准备就绪后，可从侧边导航开始体验</p>
+      </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
-/* 覆盖 Element Plus 的主色调为绿色 */
-:deep(.el-button--primary) {
-  --el-button-bg-color: #10b981;
-  --el-button-border-color: #10b981;
-  --el-button-hover-bg-color: #34d399;
-  --el-button-hover-border-color: #34d399;
-}
-
-.home-container {
+/* ========== 8pt Grid 变量 ========== */
+/* 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 96, 128 */
+.home {
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 40px;
+  --space-6: 48px;
+  --space-7: 56px;
+  --space-8: 64px;
+  --space-10: 80px;
+  --space-12: 96px;
+  --space-16: 128px;
+  --primary: #10b981;
+  --primary-hover: #34d399;
+  --primary-muted: rgba(16, 185, 129, 0.12);
+  --bg: #fafafa;
+  --bg-card: #ffffff;
+  --text: #111827;
+  --text-secondary: #6b7280;
+  --border: rgba(0, 0, 0, 0.06);
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background-color: #f3f4f6;
-  transition: background-color 0.3s;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  transition: background 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.home.is-dark {
+  --bg: #0a0a0a;
+  --bg-card: #141414;
+  --text: #f9fafb;
+  --text-secondary: #9ca3af;
+  --border: rgba(255, 255, 255, 0.08);
+  --primary-muted: rgba(16, 185, 129, 0.2);
+}
+
+/* ========== Hero ========== */
+.hero {
   position: relative;
+  padding: var(--space-16) var(--space-6) var(--space-12);
+  overflow: hidden;
 }
 
-.home-container.is-dark {
-  background-color: #121212;
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 80% 50% at 50% 0%,
+    var(--primary-muted) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
 }
 
-.app-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #ffffff;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-  padding: 0 2rem;
-  height: 64px;
+.hero-content {
+  position: relative;
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.is-dark .app-header {
-  background-color: #1e1e1e;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+.hero-content.is-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
-.header-left h2 {
+.hero-greeting {
+  margin: 0 0 var(--space-2);
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.hero-title {
+  margin: 0 0 var(--space-4);
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.hero-desc {
   margin: 0;
-  color: #10b981;
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
 }
 
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+/* ========== Features ========== */
+.features {
+  padding: 0 var(--space-6) var(--space-12);
 }
 
-.username {
-  color: #4b5563;
-  font-size: 0.95rem;
-}
-
-.is-dark .username {
-  color: #9ca3af;
-}
-
-.app-main {
-  flex: 1;
-  padding: 2rem;
+.features-grid {
   max-width: 1200px;
   margin: 0 auto;
-  width: 100%;
-  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.1s,
+    transform 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.1s;
 }
 
-.welcome-card {
-  border-radius: 12px;
-  border: none;
-  background: #ffffff;
+.features-grid.is-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
-.is-dark .welcome-card {
-  background: #1e1e1e;
+.feature-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: var(--space-5);
+  transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+  animation: cardFadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
-.card-header span {
-  font-weight: 600;
-  font-size: 1.1rem;
+.feature-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.08);
+  transform: translateY(-2px);
 }
 
-.is-dark .card-header span {
-  color: #f9fafb;
-}
-
-.welcome-content {
-  padding: 20px 0;
-}
-
-.welcome-content p {
-  color: #4b5563;
-  line-height: 1.6;
-  margin-bottom: 1rem;
-}
-
-.is-dark .welcome-content p {
-  color: #9ca3af;
-}
-
-.action-buttons {
-  margin-top: 2rem;
+.feature-icon {
+  width: var(--space-6);
+  height: var(--space-6);
   display: flex;
-  gap: 1rem;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-muted);
+  border-radius: 12px;
+  margin-bottom: var(--space-3);
+  color: var(--primary);
+  font-size: 1.25rem;
+  transition: background 0.3s, color 0.3s;
 }
 
-.theme-switch-fixed {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  z-index: 1000;
+.feature-card:hover .feature-icon {
+  background: var(--primary);
+  color: white;
+}
+
+.feature-title {
+  margin: 0 0 var(--space-2);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.feature-desc {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========== CTA ========== */
+.cta {
+  padding: 0 var(--space-6) var(--space-12);
+}
+
+.cta-card {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--space-4);
+  background: var(--bg-card);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.3s;
+}
+
+.cta-card.is-visible {
+  opacity: 1;
+}
+
+.cta-hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+/* Element Plus 主色覆盖 */
+:deep(.el-button--primary) {
+  --el-button-bg-color: var(--primary);
+  --el-button-border-color: var(--primary);
+  --el-button-hover-bg-color: var(--primary-hover);
+  --el-button-hover-border-color: var(--primary-hover);
 }
 </style>

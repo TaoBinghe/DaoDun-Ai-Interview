@@ -12,7 +12,7 @@ const isDark = useDark()
 
 const sessionId = Number(route.params.sessionId)
 
-type ReportStatus = 'GENERATING' | 'READY' | 'FAILED' | 'NOT_STARTED'
+type ReportStatus = 'GENERATING' | 'READY' | 'FAILED' | 'NOT_STARTED' | 'INSUFFICIENT_DATA'
 
 interface TopicDetail {
   topic: string
@@ -41,6 +41,7 @@ interface Report {
 
 const status = ref<ReportStatus>('GENERATING')
 const report = ref<Report | null>(null)
+const statusMessage = ref<string>('') // FAILED / INSUFFICIENT_DATA 时后端返回的提示
 const isLoading = ref(true)
 const pollCount = ref(0)
 const maxPolls = 20 // 最多轮询20次（60秒）
@@ -51,12 +52,11 @@ const fetchEvaluation = async () => {
     const res: any = await request.get(`/api/interview/sessions/${sessionId}/evaluation`)
     const data = res.data
     status.value = data.status as ReportStatus
+    statusMessage.value = data.message || ''
     if (data.status === 'READY' && data.report) {
       report.value = data.report
       stopPolling()
-    } else if (data.status === 'FAILED') {
-      stopPolling()
-    } else if (data.status === 'NOT_STARTED') {
+    } else if (data.status === 'FAILED' || data.status === 'NOT_STARTED' || data.status === 'INSUFFICIENT_DATA') {
       stopPolling()
     }
   } catch (e: any) {
@@ -199,8 +199,23 @@ const formatTimestamp = (ms: number) => {
           </svg>
         </el-icon>
         <p class="status-title">评估报告生成失败</p>
-        <p class="status-subtitle">请检查网络连接或稍后重试</p>
+        <p class="status-subtitle">{{ statusMessage || '请检查网络连接或稍后重试' }}</p>
         <el-button type="primary" @click="retryGenerate">重新生成</el-button>
+      </div>
+
+      <!-- 信息过少：仍结束面试并进入结果页，仅提示无法生成完整报告 -->
+      <div v-else-if="status === 'INSUFFICIENT_DATA'" class="status-center insufficient-data">
+        <el-icon :size="64" color="#e6a23c">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+          </svg>
+        </el-icon>
+        <p class="status-title">暂无完整评估报告</p>
+        <p class="status-subtitle">{{ statusMessage || '本次面试收集的信息较少，无法生成完整评估。建议多进行几轮问答后再结束面试。' }}</p>
+        <div class="report-actions">
+          <el-button size="large" @click="router.push('/')">返回首页</el-button>
+          <el-button type="primary" size="large" @click="router.push('/interview')">再次面试</el-button>
+        </div>
       </div>
 
       <!-- 未开始 -->

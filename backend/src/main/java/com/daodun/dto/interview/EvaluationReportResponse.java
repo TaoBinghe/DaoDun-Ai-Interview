@@ -24,11 +24,16 @@ public class EvaluationReportResponse {
         /** 评估生成失败 */
         FAILED,
         /** 会话尚未结束，无法评估 */
-        NOT_STARTED
+        NOT_STARTED,
+        /** 对话/信息过少，无法生成完整报告（仍可查看本页提示） */
+        INSUFFICIENT_DATA
     }
 
     private Long sessionId;
     private Status status;
+
+    /** 提示信息，如 INSUFFICIENT_DATA / FAILED 时给用户的说明 */
+    private String message;
 
     /** 完整报告，仅 status=READY 时非 null */
     private Report report;

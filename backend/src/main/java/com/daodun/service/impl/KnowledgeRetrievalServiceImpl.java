@@ -32,6 +32,9 @@ public class KnowledgeRetrievalServiceImpl implements KnowledgeRetrievalService 
 
     @Override
     public List<KnowledgeChunk> retrieve(String positionName, String queryText, List<String> keywords) {
+        log.info("[RAG][知识库调用] ---------- 知识库检索被调用 ---------- positionName={} queryText长度={} 关键词数={}",
+                positionName, queryText == null ? 0 : queryText.length(), keywords == null ? 0 : keywords.size());
+
         int topK = ragProperties.getRetrieval().getTopK();
         double minScore = ragProperties.getRetrieval().getMinScore();
         Map<Long, KnowledgeChunk> merged = new LinkedHashMap<>();
@@ -91,6 +94,7 @@ public class KnowledgeRetrievalServiceImpl implements KnowledgeRetrievalService 
         }
         log.info("[RAG][检索] 混合检索结束 最终返回 {} 条 | id列表={}",
                 result.size(), result.stream().map(KnowledgeChunk::getId).toList());
+        log.info("[RAG][知识库调用] ---------- 知识库检索结束 返回 {} 条 ----------", result.size());
         return result;
     }
 

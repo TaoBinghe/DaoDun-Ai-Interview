@@ -70,6 +70,8 @@ public class KnowledgeController {
         }
         String queryText = request.getQueryText() != null ? request.getQueryText() : "";
         List<String> keywords = request.getKeywords() != null ? request.getKeywords() : List.of();
+        log.info("[RAG][知识库调用] API /api/knowledge/verify 触发知识库检索 positionName={} queryText长度={}",
+                request.getPositionName().trim(), queryText.length());
         List<KnowledgeChunk> chunks = knowledgeRetrievalService.retrieve(
                 request.getPositionName().trim(), queryText, keywords);
         List<KnowledgeChunkVerifyItem> items = new ArrayList<>();

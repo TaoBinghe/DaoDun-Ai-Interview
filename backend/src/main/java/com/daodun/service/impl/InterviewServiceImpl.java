@@ -165,7 +165,11 @@ public class InterviewServiceImpl implements InterviewService {
 
             List<KnowledgeChunk> knowledgeContext = List.of();
             if (ragProperties.isEnabled()) {
+                log.info("[RAG][知识库调用] sessionId={} 开始调用知识库 position={}", sessionId, position.getName());
                 knowledgeContext = retrieveKnowledge(position.getName(), request.getContent(), allTurns);
+                log.info("[RAG][知识库调用] sessionId={} 知识库调用结束 命中 {} 条", sessionId, knowledgeContext.size());
+            } else {
+                log.info("[RAG][知识库调用] sessionId={} RAG 未开启(rag.enabled=false)，本次未调用知识库", sessionId);
             }
 
             List<Map<String, String>> messages = promptService.buildMessages(
@@ -379,9 +383,19 @@ public class InterviewServiceImpl implements InterviewService {
                             .build();
                 }
                 if ("FAILED".equals(statusVal)) {
+                    String msg = node.has("message") ? node.get("message").asText(null) : null;
                     return EvaluationReportResponse.builder()
                             .sessionId(sessionId)
                             .status(EvaluationReportResponse.Status.FAILED)
+                            .message(msg)
+                            .build();
+                }
+                if ("INSUFFICIENT_DATA".equals(statusVal)) {
+                    String msg = node.has("message") ? node.get("message").asText("") : "";
+                    return EvaluationReportResponse.builder()
+                            .sessionId(sessionId)
+                            .status(EvaluationReportResponse.Status.INSUFFICIENT_DATA)
+                            .message(msg)
                             .build();
                 }
             }
