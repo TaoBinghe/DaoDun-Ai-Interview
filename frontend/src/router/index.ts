@@ -5,6 +5,11 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
+      path: '/login',
+      name: 'login',
+      component: () => import('../views/LoginView.vue')
+    },
+    {
       path: '/',
       component: MainLayout,
       children: [
@@ -27,11 +32,6 @@ const router = createRouter({
           path: 'profile',
           name: 'profile',
           component: () => import('../views/ProfileView.vue')
-        },
-        {
-          path: 'login',
-          name: 'login',
-          component: () => import('../views/LoginView.vue')
         }
       ]
     }
