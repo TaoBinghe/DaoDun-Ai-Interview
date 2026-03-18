@@ -10,6 +10,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 面试会话接口。所有接口均需携带有效 Authorization: Bearer <accessToken>。
@@ -93,6 +94,18 @@ public class InterviewController {
     public R<List<SessionSummaryResponse>> listSessions() {
         Long userId = currentUserId();
         return R.ok(interviewService.listUserSessions(userId));
+    }
+
+    /**
+     * 获取面试开场白（LLM 生成）。
+     * GET /api/interview/welcome/{sessionId}
+     */
+    @GetMapping("/welcome/{sessionId}")
+    public R<Map<String, String>> getWelcome(@PathVariable("sessionId") Long sessionId) {
+        Long userId = currentUserId();
+        log.info("[InterviewController] getWelcome userId={} sessionId={}", userId, sessionId);
+        String text = interviewService.generateWelcomeStreaming(userId, sessionId, null);
+        return R.ok(Map.of("content", text));
     }
 
     // ─── 辅助方法 ───

@@ -10,26 +10,9 @@
 
         <!-- 中间：导航条目居中 -->
         <div class="hidden md:flex items-center justify-center space-x-8">
-          <router-link to="/" class="nav-link" active-class="nav-link-active">首页</router-link>
+          <router-link to="/" class="nav-link" exact-active-class="nav-link-active">首页</router-link>
           <router-link to="/resume" class="nav-link" active-class="nav-link-active">导入简历</router-link>
-
-          <el-dropdown trigger="hover" @command="handlePositionCommand" popper-class="dark-dropdown-popper">
-            <span class="nav-link flex items-center cursor-pointer outline-none group">
-              AI面试
-              <el-icon class="ml-1 transition-transform duration-200 group-hover:rotate-180">
-                <ArrowDown />
-              </el-icon>
-            </span>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item v-for="p in positions" :key="p.id" :command="p.id">
-                  {{ p.name }}
-                </el-dropdown-item>
-                <el-dropdown-item v-if="positions.length === 0" disabled>暂无岗位</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-
+          <router-link to="/interview" class="nav-link" active-class="nav-link-active">AI面试</router-link>
           <router-link to="/profile" class="nav-link" active-class="nav-link-active">个人中心</router-link>
         </div>
 
@@ -53,41 +36,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { ArrowDown } from '@element-plus/icons-vue'
+import { onMounted } from 'vue'
 import { useUserStore } from '../stores/user'
-import request from '../utils/request'
 
-const router = useRouter()
 const userStore = useUserStore()
 
-interface Position {
-  id: number
-  name: string
-  description: string
-  sortOrder: number
-}
-
-const positions = ref<Position[]>([])
-
-const fetchPositions = async () => {
-  try {
-    const res = await request.get('/api/position/list') as any
-    if (res.code === 200) {
-      positions.value = res.data || []
-    }
-  } catch (error) {
-    console.error('Failed to fetch positions:', error)
-  }
-}
-
-const handlePositionCommand = (id: number) => {
-  router.push({ name: 'interview', query: { positionId: id } })
-}
-
 onMounted(() => {
-  fetchPositions()
   if (!userStore.user) {
     userStore.fetchUser()
   }
@@ -106,9 +60,6 @@ onMounted(() => {
 .nav-link-active {
   color: rgb(245 245 245);
 }
-
-/* 自定义下拉菜单样式以匹配暗黑风格 */
-/* 下拉菜单样式已移动到下方的全局 style 块中处理 Teleport 问题 */
 </style>
 
 <style>
@@ -135,11 +86,6 @@ onMounted(() => {
 .dark-dropdown-popper .el-dropdown-menu__item:hover {
   background-color: rgba(255, 255, 255, 0.05) !important;
   color: rgb(245 245 245) !important;
-}
-
-.dark-dropdown-popper .el-dropdown-menu__item.is-disabled {
-  opacity: 0.5 !important;
-  cursor: not-allowed !important;
 }
 
 .dark-dropdown-popper .el-popper__arrow::before {
