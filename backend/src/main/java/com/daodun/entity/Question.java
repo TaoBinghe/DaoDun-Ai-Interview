@@ -20,7 +20,8 @@ public class Question {
         TECHNICAL,
         PROJECT,
         SCENARIO,
-        BEHAVIOR
+        BEHAVIOR,
+        ALGORITHM
     }
 
     @Id

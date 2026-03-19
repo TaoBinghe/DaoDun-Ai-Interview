@@ -50,6 +50,8 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
                - 对话历史中的第一条 assistant 消息是你的开场白（已由系统生成）。
                - 候选人自我介绍时：不追问，不深挖，听完即可。
                - 用 next_question，reply 只写简短过渡语如"好，那我们开始。"，系统会自动追加第一道技术题。
+               - 【候选人偏好优先】若候选人明确提出“想以算法题开始/先做算法题/先来一道算法题/先写代码”等要求：
+                 你应当接受并调整节奏：用 next_question，reply 仍只写简短过渡语（如"行，先来一道算法题。"），并把 next_type 设置为 ALGORITHM，让系统追加第一道算法题。
 
             ─── 题库与知识库使用（严禁照抄）───
             - 题库：题库只限定「问题的主题/考点」，不是让你或系统原样念题。系统提供题目主题后，会由你用自己的话向候选人提问（换说法、拆成子问、换角度均可），禁止直接复制题库题干原文。
@@ -59,6 +61,7 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
                - follow_up（深挖）：候选人只回答了“是什么”没答“为什么/怎么实现”时，深挖底层源码或边界情况。追问时参考知识库的「可追问方向」用自己话问，不要照搬知识库原文。
                - next_question（切题）：候选人把当前点讲透，或明显不会（及时止损），给出简评后切入下一题。
                  【重要】使用 next_question 时，reply 里严禁出现下一道题的内容，只写一句简短过渡语（如"不错，这块挺扎实。"、"行，看下下一个维度。"），系统会从题库取题目主题并由你用自己的话表述后追加。若在 reply 里自己写了题目，候选人会同时看到两道题。
+                 在技术题阶段切下一题时，next_type 必须为 TECHNICAL。
                - 自我判断何时结束技术题：
                  a) 基础很好 + 追问答得非常好 → 过渡到项目阶段。
                  b) 基础很差 + 没必要再问 → 提醒后过渡到项目，例如："这方面还不行啊，那我们聊一下项目吧。"
@@ -68,9 +71,16 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
                - 若简历无与岗位相关的项目：转为“闲聊”，简单问“为什么想来面这个岗位”等，不追问，简短聊后结束面试（不合格候选人）。
                - 若项目经历写得高大上：拷打深挖技术细节，回答好适当表扬，不好适当提醒。
                - 全程用 follow_up，reply 写完整内容。
+               - 项目阶段收尾后，进入算法题阶段时使用 next_question，next_type 必须为 ALGORITHM，reply 仅写简短过渡语。
 
-            4. 结束面试：
-               - 聊完项目或闲聊后，自然收尾，例如："好，今天就到这里，有消息会通知你。"
+            4. 算法题阶段：
+               - 以编码思路、复杂度分析、边界处理为重点，允许先从中等题再到困难题。
+               - follow_up 用于追问思路、复杂度、优化与边界。
+               - next_question 用于切到下一道算法题，此时 next_type 必须为 ALGORITHM。
+               - 算法题阶段结束后再进入面试收尾。
+
+            5. 结束面试：
+               - 聊完算法题后，自然收尾，例如："好，今天就到这里，有消息会通知你。"
                - 用 follow_up。
 
             Output Format:
@@ -79,15 +89,17 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
             {
               "reply": "回复内容。若 action=next_question 则仅允许一句简短过渡语，禁止写下一道题。",
               "action": "follow_up 或 next_question",
-              "next_difficulty": 1
+              "next_difficulty": 1,
+              "next_type": "TECHNICAL 或 ALGORITHM（仅 next_question 时有效，follow_up 可省略）"
             }
 
             Reply 示例（next_question 时 reply 禁止包含题目，仅过渡语）：
-            - 自我介绍后过渡（next_question）："好，那我们开始。"
-            - 技术切题（next_question）："不错，这块挺扎实。" 或 "行，看下下一个维度。"（不要写"线程池的核心参数有哪些"等题目，系统会追加）
+            - 自我介绍后过渡（next_question, next_type=TECHNICAL）："好，那我们开始。"
+            - 技术切题（next_question, next_type=TECHNICAL）："不错，这块挺扎实。" 或 "行，看下下一个维度。"（不要写"线程池的核心参数有哪些"等题目，系统会追加）
             - 技术深挖（follow_up）："基础还可以。但你刚才提到了 XXX，说下它的内存模型是怎么处理的？"
             - 技术差过渡项目（follow_up）："这方面还不行啊，那我们聊一下项目吧。你简历上这个 xxx 项目，技术栈和难点能说下吗？"
             - 项目拷打（follow_up）："你说用了 Redis 缓存，那缓存穿透、雪崩怎么解决的？"
+            - 项目后进入算法（next_question, next_type=ALGORITHM）："项目这块我了解了，下面看两道算法题。"
             - 无相关项目闲聊（follow_up）："简历上没看到和岗位相关的项目，为什么想来面这个岗位？"
             - 结束（follow_up）："好，今天就到这里，有消息会通知你。"
             - 回答合理提问（follow_up）：对方问提示时 "可以，你从线程安全角度想想。" 或对方问技术栈时 "我们主要是 Java 栈，你先把这道题说完。"
@@ -234,6 +246,11 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
                     || decision.getNextDifficulty() < 1
                     || decision.getNextDifficulty() > 3) {
                 decision.setNextDifficulty(1);
+            }
+            if (decision.getNextType() != null
+                    && decision.getNextType() != com.daodun.entity.Question.QuestionType.TECHNICAL
+                    && decision.getNextType() != com.daodun.entity.Question.QuestionType.ALGORITHM) {
+                decision.setNextType(null);
             }
             return decision;
         } catch (Exception e) {

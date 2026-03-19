@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.util.List;
 import java.util.Map;
@@ -48,10 +49,22 @@ public class EvaluationServiceImpl implements EvaluationService {
      * 避免与 completeSession 等其它事务的乐观锁冲突。
      */
     private void updateSessionReport(Long sessionId, String reportJson) {
-        InterviewSession s = sessionRepository.findById(sessionId).orElse(null);
-        if (s == null) return;
-        s.setEvaluationReport(reportJson);
-        sessionRepository.save(s);
+        // 乐观锁写冲突可能会发生在“同一 session 的评估重复触发”场景下
+        // 这里做少量重试，避免整个异步任务直接异常退出
+        int maxAttempts = 3;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            InterviewSession s = sessionRepository.findById(sessionId).orElse(null);
+            if (s == null) return;
+            try {
+                s.setEvaluationReport(reportJson);
+                sessionRepository.save(s);
+                return;
+            } catch (ObjectOptimisticLockingFailureException e) {
+                log.warn("[Evaluation] 乐观锁冲突，重试 updateSessionReport sessionId={} attempt={} / {}",
+                        sessionId, attempt, maxAttempts);
+                // 下轮重试会重新 findById 拉取最新 version
+            }
+        }
     }
 
     @Async

@@ -67,7 +67,8 @@ public class InterviewServiceImpl implements InterviewService {
             resume = requireUserResume(userId, request.getResumeId());
         }
 
-        Question firstQuestion = drawFirstQuestion(request.getPositionId(), request.getType());
+        Question.QuestionType initialType = resolveInitialQuestionType(request.getType());
+        Question firstQuestion = drawFirstQuestion(request.getPositionId(), initialType);
 
         InterviewSession session = InterviewSession.builder()
                 .userId(userId)
@@ -193,7 +194,16 @@ public class InterviewServiceImpl implements InterviewService {
 
         if ("next_question".equals(decision.getAction())) {
             List<Long> usedIds = extractUsedQuestionIds(allTurns);
-            Question nextQuestion = drawNextQuestion(session.getPositionId(), decision.getNextDifficulty(), usedIds);
+            Question.QuestionType hintedType = decision.getNextType();
+            // 兜底：LLM 有时忘记输出 next_type，但文案明确“先来一道算法题/先写代码”
+            if (hintedType == null && decision.getReply() != null) {
+                String r = decision.getReply();
+                if (r.contains("算法题") || r.contains("写代码") || r.contains("编码")) {
+                    hintedType = Question.QuestionType.ALGORITHM;
+                }
+            }
+            Question.QuestionType nextType = resolveNextQuestionType(session.getLastQuestionId(), hintedType);
+            Question nextQuestion = drawNextQuestion(session.getPositionId(), nextType, decision.getNextDifficulty(), usedIds);
             if (nextQuestion != null) {
                 nextQuestionId = nextQuestion.getId();
                 interviewerType = InterviewTurn.MessageType.QUESTION;
@@ -589,13 +599,11 @@ public class InterviewServiceImpl implements InterviewService {
         return found.isEmpty() ? List.of(text.substring(0, Math.min(50, text.length()))) : found;
     }
 
-    /** 首问：简单难度（difficulty=1）随机抽 1 题 */
+    /** 首问：简单难度（difficulty=1）随机抽 1 题；未指定题型时默认技术题。 */
     private Question drawFirstQuestion(Long positionId, Question.QuestionType type) {
-        List<Question> pool = type == null
-                ? questionRepository.findByPositionIdAndDifficultyOrderBySortOrderAscIdAsc(positionId, 1)
-                : questionRepository.findByPositionIdAndTypeAndDifficultyOrderBySortOrderAscIdAsc(positionId, type, 1);
+        List<Question> pool = questionRepository.findByPositionIdAndTypeAndDifficultyOrderBySortOrderAscIdAsc(positionId, type, 1);
         if (pool.isEmpty()) {
-            throw new BusinessException("该岗位暂无简单难度题目，请先完善题库");
+            throw new BusinessException("该岗位暂无对应题型的简单题，请先完善题库");
         }
         List<Question> mutable = new ArrayList<>(pool);
         Collections.shuffle(mutable, secureRandom);
@@ -603,19 +611,19 @@ public class InterviewServiceImpl implements InterviewService {
     }
 
     /**
-     * 后续换题：按指定难度随机抽 1 题，并排除已问过的题目。
-     * 若指定难度下无新题可用，降级尝试全难度范围；若仍无题则返回 null（调用方降级为追问）。
+     * 后续换题：按指定题型+难度随机抽 1 题，并排除已问过的题目。
+     * 若指定难度下无新题可用，降级尝试同题型全难度；若仍无题则返回 null（调用方降级为追问）。
      */
-    private Question drawNextQuestion(Long positionId, Integer difficulty, List<Long> usedIds) {
+    private Question drawNextQuestion(Long positionId, Question.QuestionType type, Integer difficulty, List<Long> usedIds) {
         List<Question> pool = questionRepository
-                .findByPositionIdAndDifficultyOrderBySortOrderAscIdAsc(positionId, difficulty);
+                .findByPositionIdAndTypeAndDifficultyOrderBySortOrderAscIdAsc(positionId, type, difficulty);
         List<Question> available = pool.stream()
                 .filter(q -> !usedIds.contains(q.getId()))
                 .collect(Collectors.toCollection(ArrayList::new));
 
         if (available.isEmpty()) {
-            // 降级：尝试全题库（排除已用）
-            List<Question> allPool = questionRepository.findByPositionIdOrderBySortOrderAscIdAsc(positionId);
+            // 降级：尝试同题型全难度（排除已用）
+            List<Question> allPool = questionRepository.findByPositionIdAndTypeOrderBySortOrderAscIdAsc(positionId, type);
             available = allPool.stream()
                     .filter(q -> !usedIds.contains(q.getId()))
                     .collect(Collectors.toCollection(ArrayList::new));
@@ -625,6 +633,28 @@ public class InterviewServiceImpl implements InterviewService {
         }
         Collections.shuffle(available, secureRandom);
         return available.get(0);
+    }
+
+    private Question.QuestionType resolveInitialQuestionType(Question.QuestionType requestedType) {
+        if (requestedType == null) {
+            return Question.QuestionType.TECHNICAL;
+        }
+        return requestedType;
+    }
+
+    private Question.QuestionType resolveNextQuestionType(Long lastQuestionId, Question.QuestionType llmNextType) {
+        if (llmNextType == Question.QuestionType.TECHNICAL || llmNextType == Question.QuestionType.ALGORITHM) {
+            return llmNextType;
+        }
+        if (lastQuestionId != null) {
+            Question.QuestionType currentType = questionRepository.findById(lastQuestionId)
+                    .map(Question::getType)
+                    .orElse(null);
+            if (currentType == Question.QuestionType.TECHNICAL || currentType == Question.QuestionType.ALGORITHM) {
+                return currentType;
+            }
+        }
+        return Question.QuestionType.TECHNICAL;
     }
 
     /** 从历史轮次中提取所有已出现的 questionId（用于去重） */

@@ -184,3 +184,7 @@ weights/
 *.bin
 
 /Facial-Expression-Recognition/
+
+*.idea
+*.vscode
+*.cursor

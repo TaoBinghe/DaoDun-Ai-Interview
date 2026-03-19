@@ -1,5 +1,6 @@
 package com.daodun.dto.interview;
 
+import com.daodun.entity.Question;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
@@ -10,6 +11,8 @@ import lombok.NoArgsConstructor;
  * action:
  *   "follow_up"    - 继续追问当前题目
  *   "next_question" - 进入下一道题目
+ * next_type:
+ *   "TECHNICAL" 或 "ALGORITHM"（仅 next_question 时用于指定下一题题型）
  */
 @Data
 @NoArgsConstructor
@@ -27,4 +30,8 @@ public class LlmDecision {
     /** 下一题难度（仅 next_question 时有效）：1=简单 2=中等 3=困难 */
     @JsonProperty("next_difficulty")
     private Integer nextDifficulty = 1;
+
+    /** 下一题题型（仅 next_question 时有效）：TECHNICAL | ALGORITHM，可空 */
+    @JsonProperty("next_type")
+    private Question.QuestionType nextType;
 }

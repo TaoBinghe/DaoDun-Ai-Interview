@@ -257,11 +257,62 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void onTextAnswer(WebSocketSession session, VoiceInboundMessage in) throws Exception {
+        // 获取用户输入的文本内容
+        String userText = in.getContent();
+        if (userText == null || userText.isBlank()) {
+            send(session, VoiceOutboundMessage.builder()
+                    .type("error")
+                    .content("文本内容不能为空，请重新输入")
+                    .isFinal(true)
+                    .build());
+            return;
+        }
+
+        log.info("[VoiceTrace] text_answer wsSessionId={} appSessionId={} text={}",
+                session.getId(), in.getSessionId(), userText);
+
         send(session, VoiceOutboundMessage.builder()
-                .type("error")
-                .content("文本面试模式已关闭，请使用语音作答")
+                .type("user_transcript")
+                .content(userText)
                 .isFinal(true)
                 .build());
+
+        Long userId = (Long) session.getAttributes().get("userId");
+        if (userId == null || in.getSessionId() == null) {
+            send(session, VoiceOutboundMessage.builder()
+                    .type("error")
+                    .content("会话信息缺失，请重新进入面试")
+                    .isFinal(true)
+                    .build());
+            return;
+        }
+
+        PostTurnRequest req = new PostTurnRequest();
+        req.setContent(userText);
+        try {
+            PostTurnResponse resp = interviewService.postTurn(userId, in.getSessionId(), req);
+            String content = resp.getInterviewerTurn() != null && resp.getInterviewerTurn().getContent() != null
+                    ? resp.getInterviewerTurn().getContent() : "";
+            if (content.isBlank()) {
+                content = "请继续回答。";
+            }
+            
+            // 文本模式下只发送 subtitle（文本内容），不发送音频
+            log.info("[VoiceTrace] text_mode_reply wsSessionId={} appSessionId={} text={}",
+                    session.getId(), in.getSessionId(), content);
+            send(session, VoiceOutboundMessage.builder()
+                    .type("subtitle")
+                    .content(content)
+                    .isFinal(true)
+                    .build());
+        } catch (BusinessException e) {
+            log.warn("[VoiceTrace] postTurn 失败 wsSessionId={} appSessionId={}: {}", session.getId(), in.getSessionId(), e.getMessage());
+            send(session, VoiceOutboundMessage.builder()
+                    .type("error")
+                    .content(e.getMessage() != null ? e.getMessage() : "AI 面试官暂时无响应，请稍后重试")
+                    .isFinal(true)
+                    .build());
+        }
     }
 
     private void onPlayWelcome(WebSocketSession session, VoiceInboundMessage in) throws Exception {
