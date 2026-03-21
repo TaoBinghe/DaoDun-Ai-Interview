@@ -17,4 +17,8 @@ public class VoiceInboundMessage {
     private String imageBase64;
     /** 客户端采样时间戳（毫秒） */
     private Long capturedAt;
+    /**
+     * 开场白 play_welcome：为 true 时不走 TTS，仅返回字幕（文字面试）
+     */
+    private Boolean textOnly;
 }

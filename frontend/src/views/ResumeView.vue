@@ -41,7 +41,11 @@
       <section class="rounded-2xl border border-[#faf9f5]/8 bg-[#1e1e1d] p-6">
         <div class="mb-4 flex items-center justify-between gap-4">
           <h2 class="text-lg font-medium text-[#f1f1ec]">我的简历</h2>
-          <el-button class="!h-9 !rounded-xl !border-[#ffffff1f] !bg-[#2a2a28] !px-4 !text-[#f1f1ec] hover:!bg-[#343431]" :loading="isLoadingList" @click="loadResumes">
+          <el-button
+            class="!h-9 !rounded-xl !border-0 !bg-[#faf9f5] !px-4 !font-medium !text-black hover:!opacity-90"
+            :loading="isLoadingList"
+            @click="loadResumes"
+          >
             刷新
           </el-button>
         </div>

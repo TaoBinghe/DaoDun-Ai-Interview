@@ -14,10 +14,12 @@ spring:
     driver-class-name: org.postgresql.Driver
 
   # 在 JPA/Hibernate 建表之前执行 SQL（用于创建 pgvector 扩展）
+  # 使用 ;; 作为语句分隔符，避免 init-pgvector.sql 中 DO $$ ... $$ 块内的分号被误拆成多条语句
   sql:
     init:
       mode: always
       schema-locations: classpath:init-pgvector.sql
+      separator: ";;"
 
   # JPA 配置
   jpa:

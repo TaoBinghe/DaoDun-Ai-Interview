@@ -18,11 +18,10 @@
     </div>
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-[200px,1fr]">
-      <div class="flex flex-col items-center rounded-xl border border-[#ffffff14] bg-[#111211] p-4">
+      <div class="flex flex-col items-center justify-start lg:justify-center">
         <div class="flex h-24 w-24 items-center justify-center rounded-full bg-[#2a2b2a] text-3xl font-semibold text-[#d4d3ce]">
           {{ avatarText }}
         </div>
-        <p class="mt-3 text-xs text-[#9f9f99]">头像预览</p>
       </div>
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">

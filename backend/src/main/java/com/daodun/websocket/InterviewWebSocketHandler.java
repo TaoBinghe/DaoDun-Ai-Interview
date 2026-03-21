@@ -245,7 +245,7 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
             if (content.isBlank()) {
                 content = "请继续回答。";
             }
-            pushTts(session, content);
+            pushTts(session, content, true);
         } catch (BusinessException e) {
             log.warn("[VoiceTrace] postTurn 失败 wsSessionId={} appSessionId={}: {}", session.getId(), in.getSessionId(), e.getMessage());
             send(session, VoiceOutboundMessage.builder()
@@ -289,6 +289,9 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
 
         PostTurnRequest req = new PostTurnRequest();
         req.setContent(userText);
+        if (in.getClientTurnId() != null && !in.getClientTurnId().isBlank()) {
+            req.setClientTurnId(in.getClientTurnId());
+        }
         try {
             PostTurnResponse resp = interviewService.postTurn(userId, in.getSessionId(), req);
             String content = resp.getInterviewerTurn() != null && resp.getInterviewerTurn().getContent() != null
@@ -322,7 +325,20 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
             String welcomeText = interviewService.generateWelcomeStreaming(userId, in.getSessionId(), delta -> {});
             log.info("[VoiceTrace] welcome_text wsSessionId={} appSessionId={} text={}",
                     session.getId(), in.getSessionId(), welcomeText);
-            pushTts(session, welcomeText);
+
+            // 先下发完整字幕（文字侧依赖 isFinal；避免 TTS 再推一条 subtitle 导致重复）
+            send(session, VoiceOutboundMessage.builder()
+                    .type("subtitle")
+                    .content(welcomeText)
+                    .isFinal(true)
+                    .build());
+
+            // 文字面试（textOnly）：不调用 TTS，不推送 interviewer_audio
+            if (!Boolean.TRUE.equals(in.getTextOnly())) {
+                pushTts(session, welcomeText, false);
+            } else {
+                log.info("[VoiceTrace] welcome_text_only wsSessionId={} appSessionId={} (skip TTS)", session.getId(), in.getSessionId());
+            }
         } catch (BusinessException e) {
             log.warn("[VoiceTrace] generateWelcomeStreaming 失败 wsSessionId={} appSessionId={}: {}", session.getId(), in.getSessionId(), e.getMessage());
             send(session, VoiceOutboundMessage.builder()
@@ -362,9 +378,16 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void pushTts(WebSocketSession session, String reply) throws Exception {
-        log.info("[VoiceTrace] push_tts wsSessionId={} text={}", session.getId(), reply);
+        pushTts(session, reply, true);
+    }
+
+    /**
+     * @param sendSubtitle 是否推送字幕；开场白若已单独推送过字幕，可传 false 仅拉音频
+     */
+    private void pushTts(WebSocketSession session, String reply, boolean sendSubtitle) throws Exception {
+        log.info("[VoiceTrace] push_tts wsSessionId={} text={} sendSubtitle={}", session.getId(), reply, sendSubtitle);
         TtsResult ttsResult = voiceSynthesisService.synthesize(reply);
-        if (ttsResult.getSubtitle() != null && !ttsResult.getSubtitle().isBlank()) {
+        if (sendSubtitle && ttsResult.getSubtitle() != null && !ttsResult.getSubtitle().isBlank()) {
             send(session, VoiceOutboundMessage.builder()
                     .type("subtitle")
                     .content(ttsResult.getSubtitle())
@@ -380,11 +403,15 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
                     .build());
             return;
         }
-        send(session, VoiceOutboundMessage.builder()
-                .type("error")
-                .content("TTS 未返回音频，请检查语音合成配置")
-                .isFinal(true)
-                .build());
+        if (sendSubtitle) {
+            send(session, VoiceOutboundMessage.builder()
+                    .type("error")
+                    .content("TTS 未返回音频，请检查语音合成配置")
+                    .isFinal(true)
+                    .build());
+        } else {
+            log.warn("[VoiceTrace] TTS 未返回音频（字幕已单独推送，跳过 error） wsSessionId={}", session.getId());
+        }
     }
 
     private void send(WebSocketSession session, VoiceOutboundMessage payload) throws Exception {

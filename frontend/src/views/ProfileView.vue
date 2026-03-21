@@ -1,15 +1,17 @@
 <template>
   <div class="relative min-h-[calc(100vh-64px)] bg-[#141413] px-4 py-8 text-[#faf9f5]">
     <div class="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <section class="rounded-2xl border border-[#faf9f5]/8 bg-[#1f1e1d] p-6">
+      <section class="py-2 text-center">
         <h1 class="text-3xl font-semibold tracking-tight text-[#faf9f5]">个人中心</h1>
         <p class="mt-2 text-sm text-gray-400">管理账户信息、查询历史简历与每日面试活跃度。</p>
       </section>
 
       <el-row :gutter="24" align="top" class="!m-0">
         <el-col :span="6" class="!pl-0">
-          <aside class="sidebar-container rounded-2xl border border-[#faf9f5]/8 bg-[#161716] p-4">
-            <h5 class="mb-2 px-2 text-xs font-medium tracking-wide text-[#9f9f99]">个人中心菜单</h5>
+          <aside
+            class="sidebar-container rounded-2xl border border-[#faf9f5]/8 bg-[#161716] p-4 text-center"
+          >
+            <h5 class="mb-3 text-xs font-medium tracking-wide text-[#9f9f99]">个人中心菜单</h5>
             <el-menu
               :key="activePath"
               router
@@ -77,23 +79,45 @@ watch(
 .sidebar-container {
   position: sticky;
   top: 84px;
-  height: calc(100vh - 104px);
-  overflow-y: auto;
+  align-self: flex-start;
+  width: 100%;
+}
+
+:deep(.profile-menu) {
+  width: 100%;
 }
 
 :deep(.profile-menu .el-menu-item) {
   border-radius: 10px;
   margin: 4px 0;
   color: #c9c9c3;
+  justify-content: center;
 }
 
 :deep(.profile-menu .el-menu-item:hover) {
-  background-color: rgba(255, 255, 255, 0.08);
-  color: #f1f1ec;
+  background-color: #faf9f5;
+  color: #141413;
+}
+
+:deep(.profile-menu .el-menu-item:hover .el-icon) {
+  color: #141413;
 }
 
 :deep(.profile-menu .el-menu-item.is-active) {
-  background-color: rgba(110, 241, 125, 0.12);
-  color: #8bf797;
+  background-color: #faf9f5;
+  color: #141413;
+}
+
+:deep(.profile-menu .el-menu-item.is-active .el-icon) {
+  color: #141413;
+}
+
+:deep(.profile-menu .el-menu-item.is-active:hover) {
+  background-color: #faf9f5;
+  color: #141413;
+}
+
+:deep(.profile-menu .el-menu-item.is-active:hover .el-icon) {
+  color: #141413;
 }
 </style>

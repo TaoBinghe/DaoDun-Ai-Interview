@@ -123,8 +123,15 @@ export class VoiceWebSocketClient {
     })
   }
 
-  sendPlayWelcome(sessionId: number): void {
-    this.send({ type: 'play_welcome', sessionId })
+  /**
+   * @param textOnly 文字面试：仅字幕，服务端不合成语音
+   */
+  sendPlayWelcome(sessionId: number, textOnly?: boolean): void {
+    this.send({
+      type: 'play_welcome',
+      sessionId,
+      ...(textOnly ? { textOnly: true } : {})
+    })
   }
 
   sendEmotionFrame(payload: SendEmotionFramePayload): void {
