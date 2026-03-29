@@ -29,6 +29,11 @@ const router = createRouter({
           component: () => import('../views/InterviewView.vue')
         },
         {
+          path: 'forum',
+          name: 'forum',
+          component: () => import('../views/DiscussionBoard.vue')
+        },
+        {
           path: 'profile',
           name: 'profile',
           component: () => import('../views/ProfileView.vue'),

@@ -13,6 +13,7 @@
           <router-link to="/" class="nav-link" exact-active-class="nav-link-active">首页</router-link>
           <router-link to="/resume" class="nav-link" active-class="nav-link-active">导入简历</router-link>
           <router-link to="/interview" class="nav-link" active-class="nav-link-active">AI面试</router-link>
+          <router-link to="/forum" class="nav-link" active-class="nav-link-active">论坛</router-link>
           <router-link to="/profile" class="nav-link" active-class="nav-link-active">个人中心</router-link>
         </div>
 
