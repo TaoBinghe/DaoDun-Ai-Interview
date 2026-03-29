@@ -77,6 +77,7 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
                - 以编码思路、复杂度分析、边界处理为重点，允许先从中等题再到困难题。
                - follow_up 用于追问思路、复杂度、优化与边界。
                - next_question 用于切到下一道算法题，此时 next_type 必须为 ALGORITHM。
+               - 【重要】当 next_type=ALGORITHM 时：完整题目由系统生成并展示在候选人端的「代码编写」面板，你的 reply 只允许一句简短过渡语，严禁在 reply 中写题目描述、示例、输入输出或约束条件。
                - 算法题阶段结束后再进入面试收尾。
 
             5. 结束面试：
@@ -125,11 +126,46 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
             请用你自己的话，向候选人提出这道题（可以换说法、拆成小问、换角度，保持同一考点即可）。
             只输出一句你对候选人说的问话，不要加引号、不要 JSON、不要解释。不要照抄输入原文。""";
 
+    /**
+     * 算法题正文由独立 LLM 调用生成，与面试官对话 JSON 解耦；输出格式固定便于前端左侧面板展示。
+     */
+    private static final String ALGORITHM_PROBLEM_FROM_THEME_SYSTEM = """
+            你是算法面试题库编写助手。输入是题库中的「题目主题/考点」（可能只有几个词或一句话），不是完整题干。
+            请根据该主题自行设计一道完整、可作答的算法题正文，难度与主题匹配，内容自洽。
+
+            【输出要求】
+            1. 只输出题目正文，不要前言、不要后记、不要使用 markdown 的代码围栏（三个反引号）包裹全文。
+            2. 必须严格按以下结构与顺序输出（中文，风格接近 LeetCode 中文版）：
+               第一行：题号样式标题，格式为「三位数字. 题目标题」，例如「347. 前 K 个高频元素」。
+               空一行。
+               一段或多段：题目描述（说清楚输入输出含义；若需要可说明顺序任意等）。
+               空一行。
+               示例 1：
+               输入：……
+               输出：……
+               （可选）解释：……
+               若有必要可继续写 示例 2：、示例 3：，每段示例之间空一行。
+               空一行。
+               提示：
+               • 约束条目一（如数据范围、k 的范围等）
+               • 约束条目二
+               （用「•」或「-」起头，每条一行）
+            3. 示例的输入输出要具体、可验证，不要写「见上文」类敷衍表述。
+            4. 不要输出 Java/Python 代码模板，除非题目本身要求写出函数签名（可用文字描述函数名与参数）。""";
+
     @Override
     public List<Map<String, String>> buildRephraseQuestionMessages(String questionTheme) {
         List<Map<String, String>> messages = new ArrayList<>();
         messages.add(buildMessage("system", REPHRASE_QUESTION_SYSTEM));
         messages.add(buildMessage("user", "题目主题：\n" + (questionTheme == null ? "" : questionTheme.trim())));
+        return messages;
+    }
+
+    @Override
+    public List<Map<String, String>> buildAlgorithmProblemFromThemeMessages(String questionTheme) {
+        List<Map<String, String>> messages = new ArrayList<>();
+        messages.add(buildMessage("system", ALGORITHM_PROBLEM_FROM_THEME_SYSTEM));
+        messages.add(buildMessage("user", "题库主题/考点：\n" + (questionTheme == null ? "" : questionTheme.trim())));
         return messages;
     }
 
@@ -345,6 +381,10 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
             }
             userContent.append(roleLabel).append(typeLabel).append("：")
                     .append(turn.getContent() != null ? turn.getContent() : "").append("\n");
+            if (turn.getCodingProblemContent() != null && !turn.getCodingProblemContent().isBlank()) {
+                userContent.append("【算法题完整题干（代码编写区）】\n")
+                        .append(turn.getCodingProblemContent()).append("\n");
+            }
         }
 
         emotionTimeline.filter(t -> !t.isBlank()).ifPresent(et ->

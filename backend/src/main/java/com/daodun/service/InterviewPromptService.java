@@ -44,6 +44,11 @@ public interface InterviewPromptService {
     List<Map<String, String>> buildRephraseQuestionMessages(String questionTheme);
 
     /**
+     * 根据题库中的算法题「主题/考点」，构造 messages，由 LLM 输出完整 LeetCode 风格题干（用于代码编写区）。
+     */
+    List<Map<String, String>> buildAlgorithmProblemFromThemeMessages(String questionTheme);
+
+    /**
      * 构造面试结束后 AI 综合评估的 messages 列表。
      *
      * @param positionName    应聘岗位名称

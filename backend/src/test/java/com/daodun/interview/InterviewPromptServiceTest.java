@@ -138,6 +138,18 @@ class InterviewPromptServiceTest {
         assertThat(d.getAction()).isEqualTo("follow_up");
     }
 
+    @Test
+    @DisplayName("buildAlgorithmProblemFromThemeMessages：含 system+user，且 system 约束 LeetCode 结构")
+    void buildAlgorithmProblemFromThemeMessages_structure() {
+        List<Map<String, String>> messages = promptService.buildAlgorithmProblemFromThemeMessages("堆与 TopK");
+        assertThat(messages).hasSize(2);
+        assertThat(messages.get(0).get("role")).isEqualTo("system");
+        assertThat(messages.get(0).get("content")).contains("LeetCode");
+        assertThat(messages.get(0).get("content")).contains("示例 1");
+        assertThat(messages.get(1).get("role")).isEqualTo("user");
+        assertThat(messages.get(1).get("content")).contains("堆与 TopK");
+    }
+
     // ─── 工具方法 ─────────────────────────────────────────────────
 
     private InterviewTurn buildTurn(InterviewTurn.Role role, String content) {

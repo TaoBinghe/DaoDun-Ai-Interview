@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
-import router from '../router'
+import { forceRelogin } from './authSession'
 
 const request = axios.create({
   baseURL: 'http://localhost:8081',
@@ -13,7 +13,6 @@ let refreshPromise: Promise<string> | null = null
 function doRefresh(): Promise<string> {
   const refreshToken = localStorage.getItem('refreshToken')
   if (!refreshToken) {
-    toLogin()
     return Promise.reject(new Error('请重新登录'))
   }
   return axios
@@ -30,20 +29,8 @@ function doRefresh(): Promise<string> {
         }
         return data.accessToken
       }
-      toLogin()
       return Promise.reject(new Error(res.data?.msg || '刷新失败'))
     })
-    .catch((err) => {
-      toLogin()
-      return Promise.reject(err)
-    })
-}
-
-function toLogin() {
-  localStorage.removeItem('accessToken')
-  localStorage.removeItem('refreshToken')
-  router.push('/login').catch(() => {})
-  ElMessage.error('登录已过期，请重新登录')
 }
 
 // Request interceptor
@@ -62,6 +49,11 @@ request.interceptors.request.use(
 request.interceptors.response.use(
   (response) => {
     const res = response.data
+    // 兼容 HTTP 200 但业务码表示未登录（防御性）
+    if (res?.code === 401) {
+      forceRelogin(res.msg || '未登录或 Token 已过期，请重新登录')
+      return Promise.reject(new Error(res.msg || '未登录'))
+    }
     if (res.code !== 200) {
       ElMessage.error(res.msg || 'Error')
       return Promise.reject(new Error(res.msg || 'Error'))
@@ -71,9 +63,11 @@ request.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       if (originalRequest.url?.includes('/api/auth/refresh')) {
-        toLogin()
+        forceRelogin(
+          error.response?.data?.msg || '未登录或 Token 已过期，请重新登录'
+        )
         return Promise.reject(error)
       }
       originalRequest._retry = true
@@ -87,8 +81,17 @@ request.interceptors.response.use(
         originalRequest.headers['Authorization'] = `Bearer ${newToken}`
         return request(originalRequest)
       } catch {
+        forceRelogin('登录已过期，请重新登录')
         return Promise.reject(error)
       }
+    }
+
+    // 刷新已试过仍 401，或其它请求直接 401（带 _retry）
+    if (error.response?.status === 401) {
+      forceRelogin(
+        error.response?.data?.msg || '未登录或 Token 已过期，请重新登录'
+      )
+      return Promise.reject(error)
     }
 
     const msg =
@@ -99,3 +102,4 @@ request.interceptors.response.use(
 )
 
 export default request
+export { forceRelogin }

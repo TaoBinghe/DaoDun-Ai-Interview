@@ -9,6 +9,8 @@ export type DockItemData = {
   label: unknown;
   onClick: () => void;
   className?: string;
+  /** 为 true 时在按钮右上角显示红点，并带呼吸缩放动画（如新算法题提醒） */
+  notify?: boolean;
 };
 
 export type DockProps = {
@@ -199,12 +201,19 @@ const DockItem = defineComponent({
         class: `relative cursor-pointer inline-flex items-center justify-center rounded-xl bg-[#111] border-neutral-700 border-2 shadow-md text-white ${this.className}`,
         tabindex: 0,
         role: 'button',
-        'aria-haspopup': 'true'
+        'aria-haspopup': 'true',
+        'aria-label': this.item.notify ? `${typeof label === 'string' ? label : 'Dock'}，有新题目` : undefined
       },
       [
         h(DockIcon, {}, () => [icon]),
-        h(DockLabel, { isHovered: this.isHovered }, () => [typeof label === 'string' ? label : label])
-      ]
+        h(DockLabel, { isHovered: this.isHovered }, () => [typeof label === 'string' ? label : label]),
+        this.item.notify
+          ? h('span', {
+              class: 'dock-notify-dot',
+              'aria-hidden': 'true'
+            })
+          : null
+      ].filter(Boolean)
     );
   }
 });
@@ -285,3 +294,32 @@ export default defineComponent({
   }
 });
 </script>
+
+<!-- 非 scoped：DockItem 由 render 函数生成，需全局类名 -->
+<style>
+@keyframes dock-notify-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+  }
+  50% {
+    transform: scale(1.4);
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+}
+
+.dock-notify-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: #ef4444;
+  border: 2px solid #111;
+  pointer-events: none;
+  z-index: 3;
+  animation: dock-notify-breathe 1.6s ease-in-out infinite;
+}
+</style>

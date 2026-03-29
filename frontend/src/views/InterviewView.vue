@@ -160,6 +160,34 @@
             </div>
           </div>
         </template>
+
+        <!-- 代码编写模式 -->
+        <template v-if="interviewMode === 'coding'">
+          <!-- flex + min-h-0：标题栏与编辑器分区高度，避免 h-full 与标题栏叠加导致底部按钮被裁切 -->
+          <div
+            class="w-full max-w-6xl mx-auto flex flex-col h-[min(680px,calc(100vh-10rem))] min-h-[480px] rounded-3xl overflow-hidden border border-[#faf9f5]/10 shadow-2xl bg-[#141413] relative"
+          >
+            <!-- macOS 风格窗口标题栏 -->
+            <div class="h-11 shrink-0 bg-[#1f1e1d] flex items-center px-4 border-b border-[#faf9f5]/10">
+              <div class="flex gap-2">
+                <div class="w-3 h-3 rounded-full bg-[#ff5f57]"></div>
+                <div class="w-3 h-3 rounded-full bg-[#ffbc2e]"></div>
+                <div class="w-3 h-3 rounded-full bg-[#28c840]"></div>
+              </div>
+              <div class="flex-1 text-center text-xs text-gray-400 font-medium">算法题 - 代码编写</div>
+            </div>
+
+            <div class="flex-1 min-h-0 overflow-hidden">
+              <CodeEditorView
+                :session-id="sessionId || 0"
+                :current-question="currentAlgorithmQuestion"
+                :interview-mode="lastInterviewMode"
+                @submit-code="handleCodeSubmit"
+                @go-back="exitCodingMode"
+              />
+            </div>
+          </div>
+        </template>
       </div>
 
       <div v-if="!positionId" class="flex flex-col items-center">
@@ -185,6 +213,7 @@ import { ElMessage } from 'element-plus'
 import request from '../utils/request'
 import Dock from '../component/Dock/Dock.vue'
 import TextInterviewChat from '../components/TextInterviewChat.vue'
+import CodeEditorView from '../views/CodeEditorView.vue'
 import { useUserStore } from '../stores/user'
 import { unlockAudioForPlayback, playBase64Audio, speakTextFallback, PcmRecorder } from '../utils/audioUtils'
 import { VoiceWebSocketClient } from '../services/voiceWebSocket'
@@ -193,8 +222,9 @@ const userStore = useUserStore()
 const route = useRoute()
 const router = useRouter()
 
-// 面试模式（语音/文字）
-const interviewMode = ref<'voice' | 'text'>('voice')
+// 面试模式（语音/文字/代码）
+const interviewMode = ref<'voice' | 'text' | 'coding'>('voice')
+const lastInterviewMode = ref<'voice' | 'text'>('voice')
 
 // 岗位相关
 const positionId = computed(() => route.query.positionId)
@@ -219,6 +249,11 @@ const aiSubtitles = ref('')
 // 交互相关（文字）
 const textMessages = ref<Array<{role: 'user' | 'interviewer', content: string, timestamp: number}>>([])
 const isTextWaiting = ref(false)
+
+// 算法题正文由后端 LLM 生成，经 WebSocket subtitle.codingProblemContent 或 HTTP turns 返回写入
+const currentAlgorithmQuestion = ref('')
+/** Dock「代码编写」右上角红点：有新题干且当前不在代码页时为 true */
+const codingDockNotify = ref(false)
 
 // 视频相关
 const videoRef = ref<HTMLVideoElement | null>(null)
@@ -314,6 +349,8 @@ const handlePositionChange = async (id: number) => {
   sessionId.value = null
   aiSubtitles.value = ''
   textMessages.value = []
+  currentAlgorithmQuestion.value = ''
+  codingDockNotify.value = false
   isTextWaiting.value = false
   error.value = ''
   await router.push({ name: 'interview', query: { positionId: String(id) } })
@@ -331,7 +368,9 @@ const createSession = async () => {
   isLoading.value = true
   error.value = ''
   textMessages.value = []
-  
+  currentAlgorithmQuestion.value = ''
+  codingDockNotify.value = false
+
   try {
     const res = await request.post('/api/interview/sessions', {
       positionId: Number(positionId.value)
@@ -373,16 +412,23 @@ const createSession = async () => {
   } catch (err: any) {
     console.error('Error creating session:', err)
     error.value = err?.message || '创建会话失败，请重试'
-    if (err?.response?.status === 401) {
-      ElMessage.error('登录已过期，请重新登录')
-      router.push('/login')
-    }
+    // HTTP 401 由 request 拦截器统一 forceRelogin，此处不再重复跳转
   } finally {
     isLoading.value = false
   }
 }
 
 const onVoiceMessage = (msg: any) => {
+  // 算法题干可与字幕分开发送：先处理 codingProblemContent
+  if (msg.type === 'subtitle') {
+    if (typeof msg.codingProblemContent === 'string' && msg.codingProblemContent.trim()) {
+      currentAlgorithmQuestion.value = msg.codingProblemContent.trim()
+      if (interviewMode.value !== 'coding') {
+        codingDockNotify.value = true
+      }
+    }
+  }
+
   // 语音模式下的字幕处理
   if (msg.type === 'subtitle' && msg.content) {
     if (interviewMode.value === 'voice') {
@@ -483,6 +529,8 @@ const endInterview = async () => {
     sessionId.value = null
     aiSubtitles.value = ''
     textMessages.value = []
+    currentAlgorithmQuestion.value = ''
+    codingDockNotify.value = false
   } catch (err: any) {
     error.value = err?.message || '结束面试失败，请重试'
     ElMessage.error(error.value)
@@ -520,9 +568,16 @@ const handleTextSend = async (content: string) => {
     }) as any
 
     if (res.code === 200 && res.data?.interviewerTurn) {
+      const it = res.data.interviewerTurn
+      if (typeof it.codingProblemContent === 'string' && it.codingProblemContent.trim()) {
+        currentAlgorithmQuestion.value = it.codingProblemContent.trim()
+        if (interviewMode.value !== 'coding') {
+          codingDockNotify.value = true
+        }
+      }
       textMessages.value.push({
         role: 'interviewer',
-        content: res.data.interviewerTurn.content || '',
+        content: it.content || '',
         timestamp: Date.now()
       })
     }
@@ -564,14 +619,37 @@ onUnmounted(() => {
 
 const dockActiveRing = '!border-[#6ef17d] ring-2 ring-[#6ef17d]/35'
 
+const exitCodingMode = () => {
+  interviewMode.value = lastInterviewMode.value
+}
+
+const handleCodeSubmit = (code: string) => {
+  if (!sessionId.value) return
+
+  ElMessage.success('代码已提交，正在评估中...')
+  
+  // TODO: 后续可通过 WebSocket 或 API 发送代码给后端进行评测
+  // 暂时仅显示提示，不添加到文字对话框中
+}
+
 const dockItems = computed(() => [
   {
     label: '代码编写',
+    notify: codingDockNotify.value,
     icon: () => h('svg', { xmlns: 'http://www.w3.org/2000/svg', width: '24', height: '24', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
       h('polyline', { points: '16 18 22 12 16 6' }),
       h('polyline', { points: '8 6 2 12 8 18' })
     ]),
-    onClick: () => ElMessage.info('代码编写模式开发中')
+    className: interviewMode.value === 'coding' ? dockActiveRing : '',
+    onClick: () => {
+      if (!sessionId.value) {
+        ElMessage.warning('请先开始面试后再使用代码编写功能')
+        return
+      }
+      lastInterviewMode.value = interviewMode.value === 'coding' ? 'voice' : interviewMode.value
+      interviewMode.value = 'coding'
+      codingDockNotify.value = false
+    }
   },
   {
     label: '语音面试',

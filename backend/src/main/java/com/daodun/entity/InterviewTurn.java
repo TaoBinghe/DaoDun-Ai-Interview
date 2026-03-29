@@ -57,6 +57,13 @@ public class InterviewTurn {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    /**
+     * 算法题完整题干（LeetCode 风格正文），由 LLM 根据题库主题生成。
+     * 仅 MESSAGE_TYPE=QUESTION 且对应算法题时有值；对话气泡/TTS 只用 {@link #content}（简短过渡）。
+     */
+    @Column(name = "coding_problem_content", columnDefinition = "TEXT")
+    private String codingProblemContent;
+
     /** 模型响应耗时（毫秒），仅 INTERVIEWER 类型的 turn 有值 */
     @Column(name = "latency_ms")
     private Long latencyMs;

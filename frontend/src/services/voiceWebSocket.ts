@@ -1,6 +1,8 @@
 export interface VoiceServerMessage {
   type: string
   content?: string
+  /** 算法题完整题干，与 subtitle 同条消息；供「代码编写」左侧面板 */
+  codingProblemContent?: string
   data?: string
   mimeType?: string
   isFinal?: boolean

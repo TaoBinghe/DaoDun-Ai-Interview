@@ -240,12 +240,19 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
         req.setContent(transcript);
         try {
             PostTurnResponse resp = interviewService.postTurn(userId, in.getSessionId(), req);
-            String content = resp.getInterviewerTurn() != null && resp.getInterviewerTurn().getContent() != null
-                    ? resp.getInterviewerTurn().getContent() : "";
+            var it = resp.getInterviewerTurn();
+            String content = it != null && it.getContent() != null ? it.getContent() : "";
             if (content.isBlank()) {
                 content = "请继续回答。";
             }
-            pushTts(session, content, true);
+            String coding = it != null ? it.getCodingProblemContent() : null;
+            send(session, VoiceOutboundMessage.builder()
+                    .type("subtitle")
+                    .content(content)
+                    .codingProblemContent(coding)
+                    .isFinal(true)
+                    .build());
+            pushTts(session, content, false);
         } catch (BusinessException e) {
             log.warn("[VoiceTrace] postTurn 失败 wsSessionId={} appSessionId={}: {}", session.getId(), in.getSessionId(), e.getMessage());
             send(session, VoiceOutboundMessage.builder()
@@ -294,18 +301,20 @@ public class InterviewWebSocketHandler extends TextWebSocketHandler {
         }
         try {
             PostTurnResponse resp = interviewService.postTurn(userId, in.getSessionId(), req);
-            String content = resp.getInterviewerTurn() != null && resp.getInterviewerTurn().getContent() != null
-                    ? resp.getInterviewerTurn().getContent() : "";
+            var it = resp.getInterviewerTurn();
+            String content = it != null && it.getContent() != null ? it.getContent() : "";
             if (content.isBlank()) {
                 content = "请继续回答。";
             }
-            
-            // 文本模式下只发送 subtitle（文本内容），不发送音频
+            String coding = it != null ? it.getCodingProblemContent() : null;
+
+            // 文本模式下只发送 subtitle（文本内容），不发送音频；算法题干走 codingProblemContent
             log.info("[VoiceTrace] text_mode_reply wsSessionId={} appSessionId={} text={}",
                     session.getId(), in.getSessionId(), content);
             send(session, VoiceOutboundMessage.builder()
                     .type("subtitle")
                     .content(content)
+                    .codingProblemContent(coding)
                     .isFinal(true)
                     .build());
         } catch (BusinessException e) {

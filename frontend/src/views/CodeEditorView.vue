@@ -1,41 +1,25 @@
 <template>
-  <div class="w-full h-full bg-[#141413] flex flex-col relative">
-    <!-- Header -->
-    <div class="flex items-center justify-between px-6 py-5 bg-[#141413]">
-      <div class="flex items-center gap-3">
-        <button
-          @click="handleGoBack"
-          class="p-2 hover:bg-[#2b2a27] rounded-lg transition-colors"
-          title="返回面试"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#faf9f5]">
-            <path d="M19 12H5M12 19l-7-7 7-7"/>
-          </svg>
-        </button>
-        <span class="text-[#faf9f5] font-medium">代码编辑</span>
-      </div>
-      <div class="text-sm text-gray-400">
-        <span>{{ languageDisplayName }}</span>
-      </div>
-    </div>
-
-    <!-- Main Content -->
-    <div class="flex-1 flex overflow-hidden relative">
+  <div class="w-full h-full min-h-0 bg-[#141413] flex flex-col relative">
+    <!-- Main Content：min-h-0 保证 flex 子项可收缩，底部工具栏完整可见（返回请用底部「返回面试」） -->
+    <div class="flex-1 min-h-0 flex overflow-hidden relative">
       <!-- Left Panel: Question (30%) -->
-      <div class="w-3/10 border-r border-[#faf9f5]/10 overflow-y-auto bg-[#1f1e1d]">
-        <div class="p-6 h-full flex flex-col">
-          <h3 class="text-[#faf9f5] font-semibold mb-4">算法题</h3>
-          <div class="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap break-words flex-1">
-            {{ currentQuestion }}
-          </div>
-          <div class="mt-6 pt-4 border-t border-[#faf9f5]/10">
-            <p class="text-xs text-gray-500">提示：在右侧编写代码答案</p>
+      <div class="w-[30%] border-r border-[#faf9f5]/10 overflow-y-auto bg-[#1f1e1d] min-h-0">
+        <div class="p-6 flex flex-col min-h-full">
+          <h3 class="text-[#faf9f5] font-semibold mb-4 flex items-center gap-2 shrink-0">
+            <span>📝</span>
+            <span>算法题</span>
+          </h3>
+          <div class="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap break-all flex-1 min-h-0">
+            <template v-if="currentQuestion && currentQuestion.trim()">{{ currentQuestion }}</template>
+            <p v-else class="text-gray-500 text-sm leading-relaxed">
+              暂无题目。请继续面试对话，进入算法题环节后，题目将由面试官 AI 自动生成并显示在这里（LeetCode 风格题干）。
+            </p>
           </div>
         </div>
       </div>
 
       <!-- Right Panel: Code Editor (70%) -->
-      <div class="flex-1 flex flex-col overflow-hidden">
+      <div class="w-[70%] flex flex-col overflow-hidden min-h-0">
         <!-- Code Editor Container -->
         <div class="flex-1 flex overflow-hidden relative bg-[#141413]">
           <!-- Line Numbers -->
@@ -68,17 +52,58 @@
         </div>
 
         <!-- Language Selector & Buttons -->
-        <div class="border-t border-[#faf9f5]/10 bg-[#141413] px-6 py-4 flex items-center justify-between gap-4">
-          <select
-            v-model="selectedLanguage"
-            class="px-3 py-2 bg-[#2b2a27] border border-[#faf9f5]/15 rounded-lg text-sm text-[#faf9f5] outline-none hover:border-[#faf9f5]/25 focus:border-[#6ef17d]"
-          >
-            <option value="java">Java</option>
-            <option value="python">Python</option>
-            <option value="javascript">JavaScript</option>
-            <option value="typescript">TypeScript</option>
-            <option value="sql">SQL</option>
-          </select>
+        <div class="lang-toolbar shrink-0 overflow-visible border-t border-[#faf9f5]/10 bg-[#141413] px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
+          <!-- 自定义语言下拉（非系统原生 select） -->
+          <div ref="langDropdownRoot" class="relative z-[100] min-w-[148px]">
+            <button
+              type="button"
+              class="lang-dd-trigger flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm text-[#faf9f5] outline-none transition-colors"
+              :class="langMenuOpen
+                ? 'border-[#6ef17d] bg-[#2b2a27]'
+                : 'border-[#faf9f5]/15 bg-[#2b2a27] hover:border-[#faf9f5]/25'"
+              :aria-expanded="langMenuOpen"
+              aria-haspopup="listbox"
+              @click="langMenuOpen = !langMenuOpen"
+            >
+              <span class="truncate">{{ currentLanguageLabel }}</span>
+              <svg
+                class="h-4 w-4 shrink-0 text-[#faf9f5]/70 transition-transform duration-200"
+                :class="{ 'rotate-180': langMenuOpen }"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+            <Transition name="lang-dd-panel">
+              <ul
+                v-show="langMenuOpen"
+                class="lang-dd-list absolute left-0 right-0 bottom-full mb-1 max-h-56 overflow-auto rounded-lg border border-[#faf9f5]/12 bg-[#1a1918] py-1 shadow-xl"
+                role="listbox"
+              >
+                <li v-for="opt in languageOptions" :key="opt.value" role="none">
+                  <button
+                    type="button"
+                    role="option"
+                    :aria-selected="selectedLanguage === opt.value"
+                    class="flex w-full items-center px-3 py-2 text-left text-sm transition-colors"
+                    :class="selectedLanguage === opt.value
+                      ? 'bg-[#2b2a27] text-[#6ef17d]'
+                      : 'text-[#faf9f5]/90 hover:bg-[#2b2a27]/80 hover:text-[#faf9f5]'"
+                    @click="selectLanguage(opt.value)"
+                  >
+                    {{ opt.label }}
+                  </button>
+                </li>
+              </ul>
+            </Transition>
+          </div>
 
           <div class="flex gap-3">
             <button
@@ -109,7 +134,7 @@
       </div>
 
       <!-- Video Frame (语音模式) -->
-      <div v-if="interviewMode === 'voice' && videoRef" class="absolute bottom-6 left-6 w-20 h-32 bg-[#1f1e1d] rounded-lg border border-[#faf9f5]/10 overflow-hidden shadow-lg">
+      <div v-if="(interviewMode === 'voice' || interviewMode === 'coding') && videoRef" class="absolute bottom-6 left-6 w-20 h-32 bg-[#1f1e1d] rounded-lg border border-[#faf9f5]/10 overflow-hidden shadow-lg">
         <video
           ref="inlineVideoRef"
           autoplay
@@ -124,12 +149,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
-import { highlightCode, type SupportedLanguage, getLanguageDisplayName } from '../utils/codeHighlight'
+import { onClickOutside } from '@vueuse/core'
+import { highlightCode, type SupportedLanguage } from '../utils/codeHighlight'
 
 interface Props {
   sessionId: number
   currentQuestion: string
-  interviewMode: 'text' | 'voice'
+  interviewMode: 'text' | 'voice' | 'coding'
   videoRef?: HTMLVideoElement | null
   currentEmotion?: {
     emotion: string
@@ -145,19 +171,42 @@ interface Emits {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  videoRef: null
+  videoRef: null,
+  interviewMode: 'voice' as const
 })
 
 const emit = defineEmits<Emits>()
 
 const code = ref<string>('')
 const selectedLanguage = ref<SupportedLanguage>('java')
+const langMenuOpen = ref(false)
+const langDropdownRoot = ref<HTMLElement | null>(null)
+
+const languageOptions: { value: SupportedLanguage; label: string }[] = [
+  { value: 'java', label: 'Java' },
+  { value: 'python', label: 'Python' },
+  { value: 'javascript', label: 'JavaScript' },
+  { value: 'typescript', label: 'TypeScript' },
+  { value: 'sql', label: 'SQL' }
+]
+
+const currentLanguageLabel = computed(
+  () => languageOptions.find((o) => o.value === selectedLanguage.value)?.label ?? 'Java'
+)
+
+const selectLanguage = (lang: SupportedLanguage) => {
+  selectedLanguage.value = lang
+  langMenuOpen.value = false
+}
+
+onClickOutside(langDropdownRoot, () => {
+  langMenuOpen.value = false
+})
+
 const isSubmitting = ref(false)
 const textareaRef = ref<HTMLTextAreaElement>()
 const highlightPreRef = ref<HTMLElement>()
 const inlineVideoRef = ref<HTMLVideoElement>()
-
-const languageDisplayName = computed(() => getLanguageDisplayName(selectedLanguage.value))
 
 const codeLines = computed(() => {
   return code.value.split('\n')
@@ -271,5 +320,29 @@ textarea::-webkit-scrollbar-thumb {
 
 textarea::-webkit-scrollbar-thumb:hover {
   background: rgba(111, 241, 125, 0.5);
+}
+
+/* 自定义语言下拉动画 */
+.lang-dd-panel-enter-active,
+.lang-dd-panel-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.lang-dd-panel-enter-from,
+.lang-dd-panel-leave-to {
+  opacity: 0;
+  /* 向上展开：从略偏下飞入 */
+  transform: translateY(6px);
+}
+
+.lang-dd-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(111, 241, 125, 0.25) transparent;
+}
+.lang-dd-list::-webkit-scrollbar {
+  width: 6px;
+}
+.lang-dd-list::-webkit-scrollbar-thumb {
+  background: rgba(111, 241, 125, 0.25);
+  border-radius: 3px;
 }
 </style>

@@ -191,6 +191,7 @@ public class InterviewServiceImpl implements InterviewService {
         InterviewTurn.MessageType interviewerType = InterviewTurn.MessageType.FOLLOW_UP;
         Long nextQuestionId = session.getLastQuestionId();
         String interviewerContent = decision.getReply();
+        String codingProblemContent = null;
 
         if ("next_question".equals(decision.getAction())) {
             List<Long> usedIds = extractUsedQuestionIds(allTurns);
@@ -207,11 +208,20 @@ public class InterviewServiceImpl implements InterviewService {
             if (nextQuestion != null) {
                 nextQuestionId = nextQuestion.getId();
                 interviewerType = InterviewTurn.MessageType.QUESTION;
-                // 用自己话表述题目（题库只限定主题，不直接照抄题干）
-                String questionText = rephraseQuestionTheme(nextQuestion.getContent());
-                interviewerContent = decision.getReply().isBlank()
-                        ? questionText
-                        : decision.getReply() + "\n\n" + questionText;
+                if (nextQuestion.getType() == Question.QuestionType.ALGORITHM) {
+                    String transition = decision.getReply() != null ? decision.getReply().trim() : "";
+                    if (transition.isBlank()) {
+                        transition = "下面进入算法题，请点击底部「代码编写」查看完整题目并在编辑器中作答。";
+                    }
+                    interviewerContent = transition;
+                    codingProblemContent = generateAlgorithmProblemStatement(nextQuestion.getContent());
+                } else {
+                    // 用自己话表述题目（题库只限定主题，不直接照抄题干）
+                    String questionText = rephraseQuestionTheme(nextQuestion.getContent());
+                    interviewerContent = decision.getReply() == null || decision.getReply().isBlank()
+                            ? questionText
+                            : decision.getReply() + "\n\n" + questionText;
+                }
             } else {
                 log.warn("[Interview] 无更多可用题目 sessionId={}，保持追问模式", sessionId);
                 interviewerType = InterviewTurn.MessageType.FOLLOW_UP;
@@ -227,6 +237,7 @@ public class InterviewServiceImpl implements InterviewService {
                 .messageType(interviewerType)
                 .questionId(nextQuestionId)
                 .content(interviewerContent)
+                .codingProblemContent(codingProblemContent)
                 .latencyMs(latencyMs)
                 .build();
         turnRepository.save(interviewerTurn);
@@ -527,6 +538,26 @@ public class InterviewServiceImpl implements InterviewService {
     }
 
     /**
+     * 根据题库主题调用 LLM 生成 LeetCode 风格完整算法题干（用于「代码编写」区）。
+     * 失败时降级为题库主题原文。
+     */
+    private String generateAlgorithmProblemStatement(String questionTheme) {
+        if (questionTheme == null || questionTheme.isBlank()) {
+            return "";
+        }
+        try {
+            List<Map<String, String>> messages = promptService.buildAlgorithmProblemFromThemeMessages(questionTheme);
+            String out = arkChatService.chatWithMessages(messages);
+            if (out != null && !out.isBlank()) {
+                return out.trim();
+            }
+        } catch (Exception e) {
+            log.warn("[Interview] 算法题 LLM 生成失败，使用题库主题降级: {}", e.getMessage());
+        }
+        return "【题干生成暂不可用，以下为题库主题】\n" + questionTheme.trim();
+    }
+
+    /**
      * 构造 RAG 检索上下文：从最近面试轮次中提取查询文本和关键词，调用检索服务。
      */
     private List<KnowledgeChunk> retrieveKnowledge(String positionName, String userAnswer,
@@ -688,6 +719,7 @@ public class InterviewServiceImpl implements InterviewService {
                 .role(turn.getRole())
                 .messageType(turn.getMessageType())
                 .content(turn.getContent())
+                .codingProblemContent(turn.getCodingProblemContent())
                 .questionId(turn.getQuestionId())
                 .latencyMs(turn.getLatencyMs())
                 .createTime(turn.getCreateTime())
