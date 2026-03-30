@@ -3,7 +3,6 @@
     <div class="mx-auto max-w-4xl">
       <header class="mb-8 border-b border-white/10 pb-6">
         <h1 class="text-2xl font-semibold tracking-tight text-[#faf9f5]">讨论区</h1>
-        <p class="mt-2 text-sm text-gray-400">硬核算法 · 贪心与回溯 · 大厂真题复盘</p>
       </header>
 
       <ul class="divide-y divide-white/5">
@@ -18,6 +17,7 @@
               placement="bottom-start"
               :width="300"
               trigger="hover"
+              effect="dark"
               popper-class="discussion-author-popover"
             >
               <template #reference>
@@ -29,7 +29,7 @@
                   height="40"
                 />
               </template>
-              <div class="text-[13px] text-gray-200">
+              <div class="text-[13px] text-white">
                 <div class="flex gap-3 border-b border-white/10 pb-3">
                   <img
                     :src="post.author.avatarUrl"
@@ -40,34 +40,35 @@
                   />
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-1">
-                      <span class="truncate font-medium text-gray-100">{{ post.author.username }}</span>
+                      <span class="truncate font-medium text-white">{{ post.author.username }}</span>
                       <BadgeCheck
                         v-if="post.author.verified"
                         class="h-4 w-4 shrink-0 text-sky-400"
                         :stroke-width="2"
                         aria-hidden="true"
                       />
+                    <p class="ml-auto text-xs text-white text-right">IP：{{ post.author.ipLocation }}</p>
                     </div>
-                    <p class="mt-0.5 text-xs text-gray-400">{{ post.author.rank }}</p>
-                    <p class="mt-0.5 text-xs text-gray-500">IP：{{ post.author.ipLocation }}</p>
+                    <p class="mt-0.5 text-xs text-white">{{ post.author.rank }}</p>
+                    
                   </div>
                 </div>
                 <div class="grid grid-cols-4 gap-2 border-b border-white/10 py-3 text-center">
                   <div>
-                    <p class="text-[10px] text-gray-500">被阅读</p>
-                    <p class="font-bold text-gray-100">{{ formatCount(post.author.readCount) }}</p>
+                    <p class="text-[10px] text-gray-300">被阅读</p>
+                    <p class="font-bold text-white">{{ formatCount(post.author.readCount) }}</p>
                   </div>
                   <div>
-                    <p class="text-[10px] text-gray-500">被点赞</p>
-                    <p class="font-bold text-gray-100">{{ formatCount(post.author.receivedLikes) }}</p>
+                    <p class="text-[10px] text-gray-300">被点赞</p>
+                    <p class="font-bold text-white">{{ formatCount(post.author.receivedLikes) }}</p>
                   </div>
                   <div>
-                    <p class="text-[10px] text-gray-500">被收藏</p>
-                    <p class="font-bold text-gray-100">{{ formatCount(post.author.favorites) }}</p>
+                    <p class="text-[10px] text-gray-300">被收藏</p>
+                    <p class="font-bold text-white">{{ formatCount(post.author.favorites) }}</p>
                   </div>
                   <div>
-                    <p class="text-[10px] text-gray-500">关注者</p>
-                    <p class="font-bold text-gray-100">{{ formatCount(post.author.followers) }}</p>
+                    <p class="text-[10px] text-gray-300">关注者</p>
+                    <p class="font-bold text-white">{{ formatCount(post.author.followers) }}</p>
                   </div>
                 </div>
                 <el-button
@@ -86,10 +87,10 @@
           </div>
 
           <div class="min-w-0 flex-1">
-            <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-gray-400">
-              <span>{{ post.author.username }}</span>
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
+              <span class="text-gray-100">{{ post.author.username }}</span>
               <span class="text-white/20">·</span>
-              <span>{{ post.timeLabel }}</span>
+              <span class="text-gray-400">{{ post.timeLabel }}</span>
             </div>
             <h2 class="mb-1 mt-1 text-lg font-bold text-gray-100" @click.stop="openPostDetail(post)">
               {{ post.title }}
@@ -114,8 +115,12 @@
             <div class="mt-3 flex flex-wrap items-center gap-4 text-sm text-gray-500">
               <button
                 type="button"
-                class="inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 transition-colors hover:text-gray-300"
-                :class="post.liked ? 'text-emerald-400' : 'text-gray-500'"
+                class="inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 transition-colors"
+                :class="
+                  post.isLiked
+                    ? 'text-emerald-400 hover:text-emerald-300'
+                    : 'text-gray-500 hover:text-gray-300'
+                "
                 @click.stop="handleLike(post.id)"
               >
                 <ThumbsUp class="h-4 w-4 shrink-0" :stroke-width="2" />
@@ -180,7 +185,7 @@ export interface Post {
   comments: number
   views: number
   thumbnail: string
-  liked: boolean
+  isLiked: boolean
 }
 
 const emit = defineEmits<{
@@ -211,15 +216,15 @@ const posts = ref<Post[]>([
       isFollowing: false
     },
     timeLabel: '2 小时前',
-    title: '贪心策略证明：区间选点与活动选择问题',
+    title: '字节跳动面经：LRU 缓存设计与 O(1) 淘汰复盘',
     summary:
-      '从交换论证到拟阵，说明为何局部最优能推出全局最优；附一道字节真题的建模与反例构造。',
-    tags: ['算法', '贪心', '字节跳动'],
+      '从哈希表定位到双向链表维护访问顺序，实现 get/put 均摊 O(1)；重点梳理容量淘汰与边界测试点。',
+    tags: ['LRU缓存', '算法', '字节跳动'],
     likes: 428,
     comments: 56,
     views: 12040,
     thumbnail: 'https://picsum.photos/id/180/96/96',
-    liked: false
+    isLiked: false
   },
   {
     id: 2,
@@ -237,15 +242,15 @@ const posts = ref<Post[]>([
       isFollowing: false
     },
     timeLabel: '5 小时前',
-    title: '子集与排列：回溯模板与剪枝清单',
+    title: '腾讯面经：二叉树路径求和与序列化高频复盘',
     summary:
-      '统一「选或不选」与「按位填」两种写法；重点写剪枝条件如何减少指数爆炸，附 N 皇后复杂度直觉。',
-    tags: ['算法', '回溯', '面经'],
+      '覆盖递归与迭代两套实现；用前缀和剪枝降低搜索量，并补上树的序列化/空节点边界处理。',
+    tags: ['二叉树', '腾讯', '算法'],
     likes: 612,
     comments: 89,
     views: 18920,
     thumbnail: 'https://picsum.photos/id/119/96/96',
-    liked: false
+    isLiked: false
   },
   {
     id: 3,
@@ -263,15 +268,15 @@ const posts = ref<Post[]>([
       isFollowing: false
     },
     timeLabel: '12 小时前',
-    title: '动态规划：状态压缩与背包九讲速记',
+    title: '美团技术面：动态规划 DP 状态转移三步走',
     summary:
-      '从斐波那契到子集 DP，强调「状态定义—转移—边界」三板斧；对比滚动数组与 bitmask 适用场景。',
-    tags: ['算法', '动态规划', '大厂真题'],
+      '从状态定义到转移方程与边界条件，统一讲清 dp[i]/dp[i][j] 如何落地；最后再做状态压缩与复杂度核对。',
+    tags: ['动态规划', 'DP', '美团'],
     likes: 903,
     comments: 132,
     views: 35600,
     thumbnail: 'https://picsum.photos/id/201/96/96',
-    liked: false
+    isLiked: false
   },
   {
     id: 4,
@@ -289,15 +294,15 @@ const posts = ref<Post[]>([
       isFollowing: false
     },
     timeLabel: '1 天前',
-    title: 'Dijkstra 与堆优化：负权边为何失效',
+    title: '字节跳动面经：贪心与回溯混合策略（区间/排列）',
     summary:
-      '手写邻接表 + 二叉堆松弛；对比 SPFA 适用边界，附一道图论面试常考题的建图技巧。',
-    tags: ['算法', '图论', '面试真题'],
+      '区间类用交换论证/单调性把思路推到最优；回溯部分用剪枝清单控制搜索空间，附一道真题建模与反例。',
+    tags: ['贪心', '回溯', '字节跳动'],
     likes: 341,
     comments: 47,
     views: 9800,
     thumbnail: 'https://picsum.photos/id/29/96/96',
-    liked: false
+    isLiked: false
   },
   {
     id: 5,
@@ -315,15 +320,15 @@ const posts = ref<Post[]>([
       isFollowing: false
     },
     timeLabel: '1 天前',
-    title: '阿里笔试复盘：双指针与单调队列组合拳',
+    title: '腾讯笔试复盘：滑动窗口与哈希查重套路',
     summary:
-      '2025 秋招真题拆解，如何把 O(n²) 暴力优化到 O(n log n)；附边界测试用例设计思路。',
-    tags: ['大厂真题', '双指针', '单调队列'],
+      '固定窗口 vs 可变窗口怎么选；字符集大小决定数组还是 Map；附边界用例与复杂度验证。',
+    tags: ['滑动窗口', '腾讯', '算法'],
     likes: 756,
     comments: 98,
     views: 22100,
     thumbnail: 'https://picsum.photos/id/48/96/96',
-    liked: false
+    isLiked: false
   },
   {
     id: 6,
@@ -341,15 +346,15 @@ const posts = ref<Post[]>([
       isFollowing: false
     },
     timeLabel: '2 天前',
-    title: '二分答案：最大化最小值与第 K 小数的套路',
+    title: '动态规划高频：最长公共子序列 LCS 与状态压缩',
     summary:
-      'check 函数单调性判定、边界 mid 选取防死循环；结合一道「最小化最大值」真题手写模板。',
-    tags: ['算法', '二分', '面经'],
+      '从二维 dp[i][j] 到一维滚动数组：讲清索引方向与覆盖风险；补几道常见变体的写法对比。',
+    tags: ['动态规划', 'LCS', '算法'],
     likes: 512,
     comments: 71,
     views: 15400,
     thumbnail: 'https://picsum.photos/id/250/96/96',
-    liked: false
+    isLiked: false
   },
   {
     id: 7,
@@ -367,15 +372,15 @@ const posts = ref<Post[]>([
       isFollowing: false
     },
     timeLabel: '3 天前',
-    title: '滑动窗口与哈希：最长无重复子串变体',
+    title: '二叉树高频：层序遍历与镜像翻转（队列/递归）',
     summary:
-      '固定窗口与可变窗口对比；字符集大小决定用数组还是 Map，附腾讯笔试同类题扩展。',
-    tags: ['算法', '滑动窗口', '腾讯'],
+      '用队列实现层序并处理空节点；递归版如何写得更稳；最后总结镜像翻转的边界细节。',
+    tags: ['二叉树', 'BFS', '面试'],
     likes: 604,
     comments: 88,
     views: 16800,
     thumbnail: 'https://picsum.photos/id/366/96/96',
-    liked: false
+    isLiked: false
   },
   {
     id: 8,
@@ -393,15 +398,15 @@ const posts = ref<Post[]>([
       isFollowing: false
     },
     timeLabel: '3 天前',
-    title: '单调栈：接雨水与柱状图最大矩形',
+    title: '工程算法：LRU 缓存容量淘汰与一致性口径',
     summary:
-      '一次遍历维护递增/递减栈的直觉；把高度与索引同时入栈，复盘两道高频手写题边界。',
-    tags: ['算法', '单调栈', '面试'],
+      '访问即更新的规则梳理；被淘汰元素统计的实现细节；附 LRU 边界测试点与易错场景。',
+    tags: ['LRU缓存', '一致性', '算法'],
     likes: 389,
     comments: 44,
     views: 7600,
     thumbnail: 'https://picsum.photos/id/193/96/96',
-    liked: false
+    isLiked: false
   },
   {
     id: 9,
@@ -419,15 +424,15 @@ const posts = ref<Post[]>([
       isFollowing: false
     },
     timeLabel: '4 天前',
-    title: 'Trie 树与前缀匹配：搜索引擎补全思路',
+    title: '动态规划进阶：树形 DP 子问题合并与后序遍历',
     summary:
-      '节点压缩与双数组 Trie 简介；结合一道多模式匹配题说明 DFS 在树上的剪枝。',
-    tags: ['算法', 'Trie', '字符串'],
+      '后序遍历定义每个子树状态；说明合并顺序和 dp 的不变式；避免漏状态导致的转移漏洞。',
+    tags: ['动态规划', '树形DP', '算法'],
     likes: 467,
     comments: 52,
     views: 11200,
     thumbnail: 'https://picsum.photos/id/28/96/96',
-    liked: false
+    isLiked: false
   },
   {
     id: 10,
@@ -445,35 +450,91 @@ const posts = ref<Post[]>([
       isFollowing: false
     },
     timeLabel: '5 天前',
-    title: '并查集：路径压缩与按秩合并证明直觉',
+    title: '美团面经：并查集路径压缩与按秩合并证明直觉',
     summary:
-      '从 Kruskal 到连通块计数；均摊复杂度直觉解释，附一道「冗余连接」真题代码骨架。',
-    tags: ['算法', '并查集', '图论'],
+      '用不变式理解 find/union 的正确性；通过冗余连接题复盘边界与均摊复杂度；附关键代码骨架。',
+    tags: ['并查集', '美团', '面试真题'],
     likes: 445,
     comments: 41,
     views: 9900,
     thumbnail: 'https://picsum.photos/id/106/96/96',
-    liked: false
+    isLiked: false
   }
 ])
+
+function pickRandomIndices(total: number, count: number): number[] {
+  const idxs = Array.from({ length: total }, (_, i) => i)
+  // Fisher–Yates shuffle
+  for (let i = idxs.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    // TS 对索引取值会推断为可能 undefined，这里通过非空断言表达“索引必然有效”
+    const tmp = idxs[i]!
+    idxs[i] = idxs[j]!
+    idxs[j] = tmp
+  }
+  return idxs.slice(0, count)
+}
+
+function seedRandomStates() {
+  const baseLikes = new Map<number, number>()
+  const baseFollowers = new Map<number, number>()
+
+  // 以当前 posts 的数值作为“未点赞/未关注”的基准，然后随机加 1 展示状态。
+  posts.value.forEach((p) => {
+    baseLikes.set(p.id, p.likes)
+    baseFollowers.set(p.id, p.author.followers)
+    p.isLiked = false
+    p.author.isFollowing = false
+  })
+
+  const total = posts.value.length
+  const likeCount = Math.max(2, Math.min(total - 1, 2 + Math.floor(Math.random() * 4)))
+  const followCount = Math.max(2, Math.min(total - 1, 2 + Math.floor(Math.random() * 4)))
+
+  for (const i of pickRandomIndices(total, likeCount)) {
+    const p = posts.value[i]
+    if (!p) continue
+    p.isLiked = true
+    p.likes = (baseLikes.get(p.id) ?? p.likes) + 1
+  }
+
+  for (const i of pickRandomIndices(total, followCount)) {
+    const p = posts.value[i]
+    if (!p) continue
+    p.author.isFollowing = true
+    p.author.followers = (baseFollowers.get(p.id) ?? p.author.followers) + 1
+  }
+}
+
+seedRandomStates()
 
 function handleLike(id: number) {
   const p = posts.value.find((x) => x.id === id)
   if (!p) return
-  if (!p.liked) {
+  if (p.isLiked) {
+    p.likes = Math.max(0, p.likes - 1)
+    p.isLiked = false
+  } else {
     p.likes += 1
-    p.liked = true
+    p.isLiked = true
   }
 }
 
 function handleComment(_id: number) {
+  void _id
   window.alert('正在进入详情页')
 }
 
 function toggleFollow(postId: number) {
   const p = posts.value.find((x) => x.id === postId)
   if (!p) return
-  p.author.isFollowing = !p.author.isFollowing
+  if (p.author.isFollowing) {
+    p.author.isFollowing = false
+    p.author.followers = Math.max(0, p.author.followers - 1)
+  } else {
+    p.author.isFollowing = true
+    p.author.followers += 1
+  }
 }
 
 function openPostDetail(post: Post) {
@@ -484,10 +545,11 @@ function openPostDetail(post: Post) {
 
 <style scoped>
 :deep(.discussion-author-popover) {
-  --el-bg-color-overlay: #1f1e1d;
-  --el-border-color-light: rgba(255, 255, 255, 0.12);
-  background: #1f1e1d !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  --el-bg-color-overlay: #2a2b2a;
+  --el-border-color-light: #ffffff14;
+  background: #2a2b2a !important;
+  border: 1px solid #ffffff14 !important;
+  color: #fff;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45) !important;
 }
 </style>
