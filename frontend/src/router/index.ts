@@ -34,6 +34,11 @@ const router = createRouter({
           component: () => import('../views/DiscussionBoard.vue')
         },
         {
+          path: 'post/:id',
+          name: 'post-detail',
+          component: () => import('../components/discussion/PostDetail.vue')
+        },
+        {
           path: 'profile',
           name: 'profile',
           component: () => import('../views/ProfileView.vue'),
