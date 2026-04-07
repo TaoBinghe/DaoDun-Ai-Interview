@@ -116,7 +116,7 @@
                     <line x1="12" x2="12" y1="19" y2="22" />
                   </svg>
                   {{ isSpeaking ? '停止说话' : '点击说话' }}
-                </button>
+                </button> 
                 <button
                   @click="endInterview"
                   :disabled="isCompleting"
