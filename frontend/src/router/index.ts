@@ -29,6 +29,11 @@ const router = createRouter({
           component: () => import('../views/InterviewView.vue')
         },
         {
+          path: 'interview/report/:sessionId',
+          name: 'interview-report',
+          component: () => import('../views/InterviewReportView.vue')
+        },
+        {
           path: 'forum',
           name: 'forum',
           component: () => import('../views/DiscussionBoard.vue')

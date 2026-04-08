@@ -376,10 +376,16 @@ public class InterviewServiceImpl implements InterviewService {
         InterviewSession session = requireSession(sessionId);
         requireOwner(session, userId);
 
+        String pName = positionRepository.findById(session.getPositionId())
+                .map(Position::getName).orElse("未知岗位");
+
         if (session.getStatus() != InterviewSession.Status.COMPLETED) {
             return EvaluationReportResponse.builder()
                     .sessionId(sessionId)
                     .status(EvaluationReportResponse.Status.NOT_STARTED)
+                    .positionName(pName)
+                    .startTime(session.getStartTime())
+                    .endTime(session.getEndTime())
                     .build();
         }
 
@@ -388,6 +394,9 @@ public class InterviewServiceImpl implements InterviewService {
             return EvaluationReportResponse.builder()
                     .sessionId(sessionId)
                     .status(EvaluationReportResponse.Status.GENERATING)
+                    .positionName(pName)
+                    .startTime(session.getStartTime())
+                    .endTime(session.getEndTime())
                     .build();
         }
 
@@ -401,6 +410,9 @@ public class InterviewServiceImpl implements InterviewService {
                     return EvaluationReportResponse.builder()
                             .sessionId(sessionId)
                             .status(EvaluationReportResponse.Status.GENERATING)
+                            .positionName(pName)
+                            .startTime(session.getStartTime())
+                            .endTime(session.getEndTime())
                             .build();
                 }
                 if ("FAILED".equals(statusVal)) {
@@ -409,6 +421,9 @@ public class InterviewServiceImpl implements InterviewService {
                             .sessionId(sessionId)
                             .status(EvaluationReportResponse.Status.FAILED)
                             .message(msg)
+                            .positionName(pName)
+                            .startTime(session.getStartTime())
+                            .endTime(session.getEndTime())
                             .build();
                 }
                 if ("INSUFFICIENT_DATA".equals(statusVal)) {
@@ -417,6 +432,9 @@ public class InterviewServiceImpl implements InterviewService {
                             .sessionId(sessionId)
                             .status(EvaluationReportResponse.Status.INSUFFICIENT_DATA)
                             .message(msg)
+                            .positionName(pName)
+                            .startTime(session.getStartTime())
+                            .endTime(session.getEndTime())
                             .build();
                 }
             }
@@ -428,13 +446,53 @@ public class InterviewServiceImpl implements InterviewService {
                     .sessionId(sessionId)
                     .status(EvaluationReportResponse.Status.READY)
                     .report(report)
+                    .positionName(pName)
+                    .startTime(session.getStartTime())
+                    .endTime(session.getEndTime())
                     .build();
         } catch (Exception e) {
             log.warn("[Interview] 解析评估报告JSON失败 sessionId={}: {}", sessionId, e.getMessage());
             return EvaluationReportResponse.builder()
                     .sessionId(sessionId)
                     .status(EvaluationReportResponse.Status.FAILED)
+                    .positionName(pName)
+                    .startTime(session.getStartTime())
+                    .endTime(session.getEndTime())
                     .build();
+        }
+    }
+
+    /**
+     * 与 {@link InterviewServiceImpl#getEvaluation} 对报告状态的判定一致，供列表接口展示。
+     */
+    private EvaluationReportResponse.Status resolveEvaluationStatus(InterviewSession session) {
+        if (session.getStatus() != InterviewSession.Status.COMPLETED) {
+            return EvaluationReportResponse.Status.NOT_STARTED;
+        }
+        String reportJson = session.getEvaluationReport();
+        if (reportJson == null || reportJson.isBlank()) {
+            return EvaluationReportResponse.Status.GENERATING;
+        }
+        try {
+            JsonNode node = objectMapper.readTree(reportJson);
+            JsonNode statusNode = node.get("status");
+            if (statusNode != null) {
+                String statusVal = statusNode.asText();
+                if ("GENERATING".equals(statusVal)) {
+                    return EvaluationReportResponse.Status.GENERATING;
+                }
+                if ("FAILED".equals(statusVal)) {
+                    return EvaluationReportResponse.Status.FAILED;
+                }
+                if ("INSUFFICIENT_DATA".equals(statusVal)) {
+                    return EvaluationReportResponse.Status.INSUFFICIENT_DATA;
+                }
+            }
+            objectMapper.treeToValue(node, EvaluationReportResponse.Report.class);
+            return EvaluationReportResponse.Status.READY;
+        } catch (Exception e) {
+            log.warn("[Interview] 解析评估状态失败 sessionId={}: {}", session.getId(), e.getMessage());
+            return EvaluationReportResponse.Status.FAILED;
         }
     }
 
@@ -456,16 +514,16 @@ public class InterviewServiceImpl implements InterviewService {
                 .collect(Collectors.toMap(Position::getId, Position::getName));
 
         return sessions.stream()
-                .map(s -> SessionSummaryResponse.builder()
-                        .sessionId(s.getId())
-                        .positionId(s.getPositionId())
-                        .positionName(positionNames.getOrDefault(s.getPositionId(), "未知岗位"))
-                        .status(s.getStatus().name())
-                        .currentTurnIndex(s.getCurrentTurnIndex())
-                        .startedAt(s.getStartTime())
-                        .endedAt(s.getEndTime())
-                        .createTime(s.getCreateTime())
-                        .build())
+                .map(s -> new SessionSummaryResponse(
+                        s.getId(),
+                        s.getPositionId(),
+                        positionNames.getOrDefault(s.getPositionId(), "未知岗位"),
+                        s.getStatus().name(),
+                        s.getCurrentTurnIndex(),
+                        s.getStartTime(),
+                        s.getEndTime(),
+                        s.getCreateTime(),
+                        resolveEvaluationStatus(s).name()))
                 .toList();
     }
 

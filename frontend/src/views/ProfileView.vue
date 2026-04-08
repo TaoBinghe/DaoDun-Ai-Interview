@@ -3,7 +3,7 @@
     <div class="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <section class="py-2 text-center">
         <h1 class="text-3xl font-semibold tracking-tight text-[#faf9f5]">个人中心</h1>
-        <p class="mt-2 text-sm text-gray-400">管理账户信息、查询历史简历与每日面试活跃度。</p>
+        <p class="mt-2 text-sm text-gray-400">管理账户信息、历史简历与面试记录及评估报告。</p>
       </section>
 
       <el-row :gutter="24" align="top" class="!m-0">
@@ -53,7 +53,7 @@ const route = useRoute()
 const navItems = [
   { label: '基本信息', path: '/profile/info', icon: User },
   { label: '安全设置', path: '/profile/security', icon: Lock },
-  { label: '消息中心', path: '/profile/messages', icon: Grid },
+  { label: '面试历史', path: '/profile/messages', icon: Grid },
   { label: '账号绑定', path: '/profile/binding', icon: Setting }
 ]
 

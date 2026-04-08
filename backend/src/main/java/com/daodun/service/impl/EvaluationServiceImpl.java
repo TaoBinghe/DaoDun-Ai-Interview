@@ -1,5 +1,6 @@
 package com.daodun.service.impl;
 
+import com.daodun.dto.interview.EvaluationReportResponse;
 import com.daodun.entity.InterviewSession;
 import com.daodun.entity.InterviewTurn;
 import com.daodun.entity.Position;
@@ -11,6 +12,7 @@ import com.daodun.repository.UserResumeRepository;
 import com.daodun.service.ArkChatService;
 import com.daodun.service.EvaluationService;
 import com.daodun.service.InterviewPromptService;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,11 +24,16 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class EvaluationServiceImpl implements EvaluationService {
+
+    /** 同一 sessionId 仅允许一个评估任务执行，避免并发写 evaluation_report 触发乐观锁异常 */
+    private final ConcurrentHashMap<Long, ReentrantLock> evaluationLocks = new ConcurrentHashMap<>();
 
     private final InterviewSessionRepository sessionRepository;
     private final InterviewTurnRepository turnRepository;
@@ -67,60 +74,108 @@ public class EvaluationServiceImpl implements EvaluationService {
         }
     }
 
+    private ReentrantLock lockForSession(Long sessionId) {
+        return evaluationLocks.computeIfAbsent(sessionId, id -> new ReentrantLock());
+    }
+
+    /**
+     * 是否无需再生成：已有终态占位、完整报告，或已有进行中的占位（防重复触发）。
+     */
+    private boolean shouldSkipEvaluation(InterviewSession session) {
+        if (session.getStatus() != InterviewSession.Status.COMPLETED) {
+            log.warn("[Evaluation] 会话未结束，跳过评估 sessionId={}", session.getId());
+            return true;
+        }
+        String reportJson = session.getEvaluationReport();
+        if (reportJson == null || reportJson.isBlank()) {
+            return false;
+        }
+        try {
+            JsonNode node = objectMapper.readTree(reportJson);
+            JsonNode statusNode = node.get("status");
+            if (statusNode != null) {
+                String statusVal = statusNode.asText();
+                if ("GENERATING".equals(statusVal)) {
+                    return true;
+                }
+                if ("FAILED".equals(statusVal) || "INSUFFICIENT_DATA".equals(statusVal)) {
+                    return true;
+                }
+            }
+            objectMapper.treeToValue(node, EvaluationReportResponse.Report.class);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     @Async
     @Override
     @Transactional
     public void generateAsync(Long sessionId) {
         log.info("[Evaluation] 开始异步生成评估报告 sessionId={}", sessionId);
 
-        InterviewSession session = sessionRepository.findById(sessionId).orElse(null);
-        if (session == null) {
-            log.warn("[Evaluation] 会话不存在 sessionId={}", sessionId);
-            return;
-        }
-
-        // 写入 GENERATING 占位（重新加载再保存，避免乐观锁冲突）
-        updateSessionReport(sessionId, STATUS_GENERATING);
-
+        ReentrantLock lock = lockForSession(sessionId);
+        lock.lock();
         try {
-            Position position = positionRepository.findById(session.getPositionId()).orElseThrow();
-            List<InterviewTurn> turns = turnRepository.findBySessionIdOrderByTurnIndexAsc(sessionId);
-
-            if (turns.isEmpty()) {
-                log.warn("[Evaluation] 会话无对话记录，标记为信息不足 sessionId={}", sessionId);
-                updateSessionReport(sessionId, STATUS_INSUFFICIENT_DATA);
+            InterviewSession session = sessionRepository.findById(sessionId).orElse(null);
+            if (session == null) {
+                log.warn("[Evaluation] 会话不存在 sessionId={}", sessionId);
+                return;
+            }
+            if (shouldSkipEvaluation(session)) {
+                log.info("[Evaluation] 跳过评估（已生成、进行中或终态占位）sessionId={}", sessionId);
                 return;
             }
 
-            Optional<String> resumeText = Optional.empty();
-            if (session.getResumeId() != null) {
-                resumeText = userResumeRepository.findById(session.getResumeId())
-                        .map(this::buildResumeContext);
-            }
+            // 写入 GENERATING 占位（重新加载再保存，避免乐观锁冲突）
+            updateSessionReport(sessionId, STATUS_GENERATING);
 
-            Optional<String> emotionTimeline = Optional.ofNullable(session.getEmotionTimeline())
-                    .filter(t -> !t.isBlank());
-
-            List<Map<String, String>> messages = promptService.buildEvaluationMessages(
-                    position.getName(), turns, resumeText, emotionTimeline);
-
-            log.info("[Evaluation] 调用LLM生成评估 sessionId={} turns={}", sessionId, turns.size());
-            String rawReport = arkChatService.chatWithMessages(messages);
-            log.info("[Evaluation] LLM返回原始评估内容 sessionId={} length={}", sessionId,
-                    rawReport != null ? rawReport.length() : 0);
-
-            String reportJson = extractAndValidateJson(rawReport, sessionId);
-            updateSessionReport(sessionId, reportJson);
-            log.info("[Evaluation] 评估报告生成并存储完成 sessionId={}", sessionId);
-
-        } catch (Exception e) {
-            log.error("[Evaluation] 生成评估报告异常 sessionId={}: {}", sessionId, e.getMessage(), e);
             try {
-                updateSessionReport(sessionId, STATUS_FAILED);
-            } catch (Exception ex) {
-                log.error("[Evaluation] 存储FAILED状态也失败 sessionId={}: {}", sessionId, ex.getMessage());
+                runEvaluationJob(sessionId, session);
+            } catch (Exception e) {
+                log.error("[Evaluation] 生成评估报告异常 sessionId={}: {}", sessionId, e.getMessage(), e);
+                try {
+                    updateSessionReport(sessionId, STATUS_FAILED);
+                } catch (Exception ex) {
+                    log.error("[Evaluation] 存储FAILED状态也失败 sessionId={}: {}", sessionId, ex.getMessage());
+                }
             }
+        } finally {
+            lock.unlock();
         }
+    }
+
+    private void runEvaluationJob(Long sessionId, InterviewSession session) throws Exception {
+        Position position = positionRepository.findById(session.getPositionId()).orElseThrow();
+        List<InterviewTurn> turns = turnRepository.findBySessionIdOrderByTurnIndexAsc(sessionId);
+
+        if (turns.isEmpty()) {
+            log.warn("[Evaluation] 会话无对话记录，标记为信息不足 sessionId={}", sessionId);
+            updateSessionReport(sessionId, STATUS_INSUFFICIENT_DATA);
+            return;
+        }
+
+        Optional<String> resumeText = Optional.empty();
+        if (session.getResumeId() != null) {
+            resumeText = userResumeRepository.findById(session.getResumeId())
+                    .map(this::buildResumeContext);
+        }
+
+        Optional<String> emotionTimeline = Optional.ofNullable(session.getEmotionTimeline())
+                .filter(t -> !t.isBlank());
+
+        List<Map<String, String>> messages = promptService.buildEvaluationMessages(
+                position.getName(), turns, resumeText, emotionTimeline);
+
+        log.info("[Evaluation] 调用LLM生成评估 sessionId={} turns={}", sessionId, turns.size());
+        String rawReport = arkChatService.chatWithMessages(messages);
+        log.info("[Evaluation] LLM返回原始评估内容 sessionId={} length={}", sessionId,
+                rawReport != null ? rawReport.length() : 0);
+
+        String reportJson = extractAndValidateJson(rawReport, sessionId);
+        updateSessionReport(sessionId, reportJson);
+        log.info("[Evaluation] 评估报告生成并存储完成 sessionId={}", sessionId);
     }
 
     /**

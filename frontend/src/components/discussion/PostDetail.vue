@@ -4,11 +4,11 @@
       <div class="mb-6 flex items-center gap-3">
         <button
           type="button"
-          class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-gray-200 transition-colors hover:bg-white/10"
+          class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#2c2c2b] text-[#faf9f5] transition-colors hover:bg-[#383837] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+          aria-label="返回讨论区"
           @click="router.back()"
         >
-          <ChevronLeft class="h-4 w-4" :stroke-width="2" />
-          <span>返回讨论区</span>
+          <ChevronLeft class="h-5 w-5" :stroke-width="2" />
         </button>
       </div>
 
@@ -56,14 +56,11 @@
           :key="tag"
           class="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-200"
         >
-          # {{ tag }}
+          {{ tag }}
         </span>
       </div>
 
-      <section
-        v-if="post"
-        class="mt-6 rounded-2xl border border-white/10 bg-[#1e1e1d] p-6 md:p-8 prose prose-invert max-w-none"
-      >
+      <section v-if="post" class="mt-6 prose prose-invert max-w-none">
         <p
           v-for="(paragraph, idx) in contentParagraphs"
           :key="idx"
@@ -73,10 +70,10 @@
         </p>
       </section>
 
-      <div v-if="post" class="mt-6 flex flex-wrap gap-3">
+      <div v-if="post" class="mt-6 flex flex-wrap gap-4">
         <button
           type="button"
-          class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-200 transition-colors hover:bg-white/10"
+          class="inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm text-gray-400 transition-colors hover:text-gray-200"
           @click="toggleLike"
         >
           <ThumbsUp
@@ -89,7 +86,7 @@
 
         <button
           type="button"
-          class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-200 transition-colors hover:bg-white/10"
+          class="inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm text-gray-400 transition-colors hover:text-gray-200"
           @click="toggleStar"
         >
           <Star
@@ -102,7 +99,7 @@
 
         <button
           type="button"
-          class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-200 transition-colors hover:bg-white/10"
+          class="inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm text-gray-400 transition-colors hover:text-gray-200"
         >
           <MessageSquare class="h-4 w-4" :stroke-width="2" />
           <span>评论</span>
@@ -110,7 +107,7 @@
 
         <button
           type="button"
-          class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-200 transition-colors hover:bg-white/10"
+          class="inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm text-gray-400 transition-colors hover:text-gray-200"
         >
           <Share2 class="h-4 w-4" :stroke-width="2" />
           <span>分享</span>
@@ -123,25 +120,25 @@
           <article
             v-for="comment in comments"
             :key="comment.id"
-            class="flex gap-3 rounded-xl border border-white/5 bg-[#111211] p-3"
+            class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2"
           >
             <img
               :src="comment.avatarUrl"
               :alt="comment.authorName"
-              class="h-8 w-8 rounded-full object-cover ring-1 ring-white/10"
+              class="row-start-1 h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-white/10"
             />
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2 text-xs text-gray-400">
-                <span class="font-medium text-gray-200">{{ comment.authorName }}</span>
-                <span class="text-white/20">·</span>
-                <span>{{ comment.createdAt }}</span>
-                <span class="text-white/20">·</span>
-                <span>IP：{{ comment.ipLocation }}</span>
-              </div>
-              <p class="mt-1 text-sm leading-relaxed text-gray-100">
-                {{ comment.content }}
-              </p>
+            <div
+              class="row-start-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-sm leading-relaxed text-gray-400"
+            >
+              <span class="font-medium text-gray-200">{{ comment.authorName }}</span>
+              <span class="text-white/20">·</span>
+              <span>{{ comment.createdAt }}</span>
+              <span class="text-white/20">·</span>
+              <span>IP：{{ comment.ipLocation }}</span>
             </div>
+            <p class="col-start-2 row-start-2 min-w-0 text-sm leading-relaxed text-gray-100">
+              {{ comment.content }}
+            </p>
           </article>
         </div>
       </section>

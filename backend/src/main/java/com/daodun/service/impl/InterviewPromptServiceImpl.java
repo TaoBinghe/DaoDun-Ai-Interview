@@ -322,18 +322,29 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
             评估维度：
             1. 【知识积累评估】分析候选人在各技术考点上的表现，指出哪里回答扎实、哪里存在明显不足，覆盖所有被考察的技术点。
             2. 【情绪状态评估】根据情绪时间线，评估候选人全程的情绪表现，肯定良好的情绪状态，详细指出不良情绪（如持续紧张、抵触、略显低落等）及其发生阶段。
-            3. 【综合建议】分别给出学习提升建议（具体可执行的学习方向）和情绪管理建议（实际可操作的方法）。
+            3. 【综合能力评估】从表达能力、应变能力、应答能力、逻辑能力、专业知识、技术深度六个维度分别打分（0-100）。
+            4. 【逐题解析】逐一分析面试中每道题目，提取原题、追问、候选人回答、优缺点、点评及参考答案。
+            5. 【综合建议】分别给出学习提升建议（具体可执行的学习方向）和情绪管理建议（实际可操作的方法）。
 
             输出要求：
             - 必须严格以如下 JSON 格式输出，不含任何多余文字：
             {
               "overallScore": <0-100的整数，综合评分>,
               "overallComment": "<2-3句总体评语，客观公正>",
+              "ratingLevel": "<评价等级：优秀/良好/合格/待提升/不合格>",
+              "abilityScores": {
+                "expressionAbility": <0-100，表达能力>,
+                "adaptability": <0-100，应变能力>,
+                "responseSpeed": <0-100，应答能力>,
+                "logicAbility": <0-100，逻辑能力>,
+                "professionalKnowledge": <0-100，专业知识>,
+                "technicalDepth": <0-100，技术深度>
+              },
               "knowledgeAssessment": {
                 "strengths": ["<优点1>", "<优点2>"],
                 "weaknesses": ["<不足1>", "<不足2>"],
                 "topicDetails": [
-                  {"topic": "<考点名称>", "rating": "good|fair|poor", "comment": "<该考点的具体评价>"}
+                  {"topic": "<考点名称>", "rating": "good|fair|poor", "score": <0-10整数评分>, "comment": "<该考点的具体评价>"}
                 ]
               },
               "emotionAssessment": {
@@ -341,11 +352,31 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
                 "positives": ["<积极情绪表现1>"],
                 "issues": ["<情绪问题1，包含发生的面试阶段>"]
               },
+              "questionAnalysis": [
+                {
+                  "questionIndex": <题目序号，从1开始>,
+                  "questionContent": "<题目原题内容>",
+                  "followUpContents": ["<追问1>", "<追问2>"],
+                  "candidateAnswer": "<面试者回答的摘要概述>",
+                  "strengths": ["<回答优点1>"],
+                  "improvements": ["<待改进1>"],
+                  "interviewerComment": "<面试官综合点评>",
+                  "solutionApproach": "<解题思路说明>",
+                  "referenceAnswer": "<参考答案要点>"
+                }
+              ],
               "recommendations": {
                 "learning": ["<学习建议1（具体可执行）>", "<学习建议2>"],
                 "emotional": ["<情绪管理建议1（可操作）>", "<情绪管理建议2>"]
               }
             }
+
+            评价等级对应关系：
+            - 90-100 → 优秀
+            - 70-89 → 良好
+            - 50-69 → 合格
+            - 30-49 → 待提升
+            - 0-29 → 不合格
 
             评分标准：
             - 90-100：基础扎实，项目经验丰富，表达清晰，情绪稳定自信
@@ -353,6 +384,12 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
             - 50-69：基础一般，部分考点较为薄弱，需要加强
             - 30-49：多个核心考点掌握不足，基础有较大缺口
             - 0-29：基础薄弱，大部分考点无法答到要点
+
+            questionAnalysis 注意事项：
+            - 只分析面试官主动提出的技术题目（messageType=QUESTION的面试官发言），不要把自我介绍、过渡语、闲聊等非题目内容作为题目分析。
+            - 每道题的 followUpContents 应收集该题下所有追问（messageType=FOLLOW_UP且属于该题范围内的面试官发言）。
+            - candidateAnswer 应概括候选人针对该题所有回答的要点摘要。
+            - referenceAnswer 应给出该题的标准参考答案要点，帮助候选人事后学习。
             """;
 
     @Override
@@ -390,7 +427,7 @@ public class InterviewPromptServiceImpl implements InterviewPromptService {
         emotionTimeline.filter(t -> !t.isBlank()).ifPresent(et ->
                 userContent.append("\n【情绪时间线（JSON格式，timestamp为相对开始的毫秒数，emotion为情绪标签，confidence为置信度）】\n")
                         .append(et).append("\n")
-                        .append("情绪标签含义：neutral=专注/平静, happy=自信/放松, anger=紧张/抵触, sad=略显低落或思考中, surprise=意外, disgust=反感\n")
+                        .append("情绪标签含义：平稳=状态稳定、表达自然；专注=处于思考和组织表达中；紧张=压力较高或回答拘谨；积极=状态放松、回应主动；波动=短时起伏较明显，可能由追问或题目变化引起\n")
         );
 
         userContent.append("\n请根据以上信息，按照系统要求的 JSON 格式输出完整评估报告。");

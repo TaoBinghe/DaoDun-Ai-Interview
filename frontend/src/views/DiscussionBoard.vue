@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-[calc(100vh-64px)] bg-[#141413] px-4 py-8 text-[#f5f5f5]">
     <div class="mx-auto max-w-4xl">
-      <header class="mb-4 border-b border-white/10 pb-6">
+      <header class="mb-6">
         <h1 class="text-2xl font-semibold tracking-tight text-[#faf9f5]">讨论区</h1>
       </header>
 
@@ -22,7 +22,7 @@
         <li
           v-for="post in filteredPosts"
           :key="post.id"
-          class="flex cursor-pointer gap-4 py-5 transition-colors first:pt-0 hover:bg-white/[0.04]"
+          class="flex cursor-pointer gap-4 py-5 first:pt-0"
           @click="openPostDetail(post)"
         >
           <div class="shrink-0" @click.stop>
@@ -121,7 +121,7 @@
                 class="!border-white/10 !bg-zinc-700/80 !text-gray-300"
                 @click.stop
               >
-                # {{ tag }}
+                {{ tag }}
               </el-tag>
             </div>
 

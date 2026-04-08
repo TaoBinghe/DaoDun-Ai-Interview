@@ -72,6 +72,17 @@
                   </svg>
                   <span class="text-xs">正在连接摄像头...</span>
                 </div>
+                <!-- 情绪识别角标：叠加在视频左下角 -->
+                <transition name="fade">
+                  <div
+                    v-if="sessionId && currentEmotion && currentEmotion.hasFace"
+                    class="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-sm text-xs font-medium text-white select-none"
+                  >
+                    <span>{{ emotionEmoji }}</span>
+                    <span>{{ emotionLabel }}</span>
+                    <span class="text-white/50">{{ (currentEmotion.confidence * 100).toFixed(0) }}%</span>
+                  </div>
+                </transition>
               </div>
             </div>
           </div>
@@ -260,6 +271,32 @@ const videoRef = ref<HTMLVideoElement | null>(null)
 const hasVideo = ref(false)
 const isSpeaking = ref(false)
 
+// 情绪识别相关
+const currentEmotion = ref<{ emotion: string; rawEmotion: string; confidence: number; hasFace: boolean } | null>(null)
+const emotionTimeline = ref<Array<{ timestamp: number; emotion: string; confidence: number }>>([])
+const emotionIntervalRef = ref<ReturnType<typeof setInterval> | null>(null)
+const sessionStartTime = ref<number>(0)
+
+const INTERVIEW_EMOTION_MAP: Record<string, { label: string; emoji: string }> = {
+  neutral:  { label: '平稳', emoji: '🙂' },
+  happy:    { label: '积极', emoji: '😊' },
+  sad:      { label: '专注', emoji: '🧠' },
+  anger:    { label: '紧张', emoji: '😣' },
+  surprise: { label: '波动', emoji: '😮' },
+  disgust:  { label: '波动', emoji: '😶' },
+}
+
+const mapRawEmotionToInterviewEmotion = (rawEmotion?: string): string => {
+  if (!rawEmotion) return ''
+  return INTERVIEW_EMOTION_MAP[rawEmotion]?.label ?? rawEmotion
+}
+
+const emotionLabel = computed(() => currentEmotion.value?.emotion ?? '')
+const emotionEmoji = computed(() => {
+  const raw = currentEmotion.value?.rawEmotion ?? ''
+  return INTERVIEW_EMOTION_MAP[raw]?.emoji ?? '🙂'
+})
+
 // 语音 WebSocket（开场白 + 点击说话）
 const voiceClient = ref<InstanceType<typeof VoiceWebSocketClient> | null>(null)
 const pcmRecorder = ref<InstanceType<typeof PcmRecorder> | null>(null)
@@ -282,6 +319,36 @@ const stopVideo = () => {
     const stream = videoRef.value.srcObject as MediaStream
     stream.getTracks().forEach(track => track.stop())
   }
+}
+
+const startEmotionCapture = () => {
+  if (emotionIntervalRef.value) clearInterval(emotionIntervalRef.value)
+  emotionIntervalRef.value = setInterval(() => {
+    if (!voiceClient.value?.isOpen() || !videoRef.value || !sessionId.value) return
+    const video = videoRef.value
+    if (video.videoWidth === 0 || video.videoHeight === 0) return
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1] ?? ''
+    if (!base64) return
+    voiceClient.value.sendEmotionFrame({
+      sessionId: sessionId.value!,
+      imageBase64: base64,
+      capturedAt: Date.now()
+    })
+  }, 2000)
+}
+
+const stopEmotionCapture = () => {
+  if (emotionIntervalRef.value) {
+    clearInterval(emotionIntervalRef.value)
+    emotionIntervalRef.value = null
+  }
+  currentEmotion.value = null
 }
 
 const setTabRef = (el: any, index: number) => {
@@ -344,6 +411,7 @@ const handlePositionChange = async (id: number) => {
     pcmRecorder.value = null
   }
   isSpeaking.value = false
+  stopEmotionCapture()
   voiceClient.value?.disconnect()
   voiceClient.value = null
   sessionId.value = null
@@ -352,6 +420,7 @@ const handlePositionChange = async (id: number) => {
   currentAlgorithmQuestion.value = ''
   codingDockNotify.value = false
   isTextWaiting.value = false
+  emotionTimeline.value = []
   error.value = ''
   await router.push({ name: 'interview', query: { positionId: String(id) } })
   updateActiveTabStyle()
@@ -378,6 +447,8 @@ const createSession = async () => {
     
     if (res.code === 200 && res.data?.sessionId) {
       sessionId.value = res.data.sessionId
+      sessionStartTime.value = Date.now()
+      emotionTimeline.value = []
       if (interviewMode.value === 'voice') {
         unlockAudioForPlayback()
       }
@@ -388,6 +459,7 @@ const createSession = async () => {
       try {
         await client.connect(onVoiceMessage)
         client.sendPlayWelcome(sessionId.value!, interviewMode.value === 'text')
+        startEmotionCapture()
       } catch (wsErr: any) {
         console.warn('WebSocket 开场白失败，改用 HTTP + 浏览器朗读:', wsErr)
         voiceClient.value = null
@@ -460,6 +532,24 @@ const onVoiceMessage = (msg: any) => {
       isTextWaiting.value = false
     }
   }
+
+  if (msg.type === 'emotion_status') {
+    const mappedEmotion = mapRawEmotionToInterviewEmotion(msg.emotion)
+    const prev = currentEmotion.value?.emotion
+    currentEmotion.value = {
+      emotion: mappedEmotion,
+      rawEmotion: msg.emotion ?? '',
+      confidence: msg.confidence ?? 0,
+      hasFace: msg.hasFace ?? false
+    }
+    if (msg.hasFace && mappedEmotion && mappedEmotion !== prev) {
+      emotionTimeline.value.push({
+        timestamp: Date.now() - sessionStartTime.value,
+        emotion: mappedEmotion,
+        confidence: msg.confidence ?? 0
+      })
+    }
+  }
 }
 
 const ensureVoiceClient = async (): Promise<boolean> => {
@@ -521,16 +611,22 @@ const endInterview = async () => {
     pcmRecorder.value = null
   }
   isSpeaking.value = false
+  stopEmotionCapture()
   voiceClient.value?.disconnect()
   voiceClient.value = null
   try {
-    await request.patch(`/api/interview/sessions/${sessionId.value}/complete`, {})
-    ElMessage.success('面试已结束')
+    const completedSessionId = sessionId.value
+    await request.patch(`/api/interview/sessions/${completedSessionId}/complete`, {
+      emotionTimeline: emotionTimeline.value.length > 0 ? emotionTimeline.value : undefined
+    })
+    ElMessage.success('面试已结束，正在生成评估报告...')
     sessionId.value = null
     aiSubtitles.value = ''
     textMessages.value = []
     currentAlgorithmQuestion.value = ''
     codingDockNotify.value = false
+    emotionTimeline.value = []
+    router.push({ name: 'interview-report', params: { sessionId: String(completedSessionId) } })
   } catch (err: any) {
     error.value = err?.message || '结束面试失败，请重试'
     ElMessage.error(error.value)
@@ -612,6 +708,7 @@ onUnmounted(() => {
     pcmRecorder.value.stop()
     pcmRecorder.value = null
   }
+  stopEmotionCapture()
   voiceClient.value?.disconnect()
   voiceClient.value = null
   stopVideo()
