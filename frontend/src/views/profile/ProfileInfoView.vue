@@ -79,6 +79,10 @@ const userStore = useUserStore()
 const isEditingProfile = ref(false)
 const profileForm = ref({ username: '', gender: '', birthDate: '' })
 const profileSnapshot = ref({ username: '', gender: '', birthDate: '' })
+const hardcodedProfileDefaults = {
+  gender: 'male',
+  birthDate: '1999-01-01'
+}
 
 const avatarText = computed(() => {
   const name = profileForm.value.username || userStore.user?.username || 'U'
@@ -94,8 +98,8 @@ function genderLabel(gender: string) {
 
 function seedProfileForm() {
   profileForm.value.username = userStore.user?.username || ''
-  profileForm.value.gender = ''
-  profileForm.value.birthDate = ''
+  profileForm.value.gender = hardcodedProfileDefaults.gender
+  profileForm.value.birthDate = hardcodedProfileDefaults.birthDate
   profileSnapshot.value = { ...profileForm.value }
 }
 

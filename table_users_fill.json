@@ -1,0 +1,32 @@
+{
+  "slide": 1,
+  "table": 1,
+  "rows": 8,
+  "cols": 3,
+  "cells": [
+    { "row": 1, "col": 1, "text": "字段名" },
+    { "row": 1, "col": 2, "text": "数据类型" },
+    { "row": 1, "col": 3, "text": "说明" },
+    { "row": 2, "col": 1, "text": "id" },
+    { "row": 2, "col": 2, "text": "BIGINT" },
+    { "row": 2, "col": 3, "text": "主键，自增" },
+    { "row": 3, "col": 1, "text": "username" },
+    { "row": 3, "col": 2, "text": "VARCHAR(20)" },
+    { "row": 3, "col": 3, "text": "登录用户名，非空、唯一" },
+    { "row": 4, "col": 1, "text": "email" },
+    { "row": 4, "col": 2, "text": "VARCHAR(50)" },
+    { "row": 4, "col": 3, "text": "邮箱，非空、唯一" },
+    { "row": 5, "col": 1, "text": "password" },
+    { "row": 5, "col": 2, "text": "VARCHAR(255)" },
+    { "row": 5, "col": 3, "text": "密码（哈希存储）" },
+    { "row": 6, "col": 1, "text": "status" },
+    { "row": 6, "col": 2, "text": "INTEGER" },
+    { "row": 6, "col": 3, "text": "账户状态：1 正常，0 锁定/禁用" },
+    { "row": 7, "col": 1, "text": "create_time" },
+    { "row": 7, "col": 2, "text": "TIMESTAMP" },
+    { "row": 7, "col": 3, "text": "创建时间" },
+    { "row": 8, "col": 1, "text": "update_time" },
+    { "row": 8, "col": 2, "text": "TIMESTAMP" },
+    { "row": 8, "col": 3, "text": "更新时间" }
+  ]
+}

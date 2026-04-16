@@ -1,7 +1,11 @@
 <template>
   <div class="flex flex-col items-center justify-center min-h-screen bg-[#141413] px-4 selection:bg-white/20">
-    <router-link to="/" class="mb-10 text-xl font-medium tracking-tight text-[#f5f5f5] no-underline hover:opacity-80 transition-opacity">
-      AI Interview
+    <router-link
+      to="/"
+      class="mb-10 flex items-center gap-2.5 text-[#f5f5f5] no-underline transition-opacity hover:opacity-80"
+    >
+      <img :src="brandLogo" alt="智面未来" class="h-9 w-auto shrink-0 rounded-lg object-contain" width="120" height="36" />
+      <span class="text-xl font-medium tracking-tight">智面未来</span>
     </router-link>
 
     <div class="w-full max-w-md bg-[#141413] border border-white/5 rounded-4xl p-8 md:p-12 relative z-10">
@@ -267,6 +271,7 @@ import { ElMessage } from 'element-plus'
 import request from '../utils/request'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import brandLogo from '@resouce/logo.png'
 
 const router = useRouter()
 const userStore = useUserStore()

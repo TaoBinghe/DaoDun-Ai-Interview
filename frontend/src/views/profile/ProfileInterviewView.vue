@@ -22,53 +22,44 @@
       <div v-if="sessionsLoading && !sessions.length" class="py-8 text-center text-sm text-[#b9b8b3]">
         正在加载面试记录...
       </div>
-      <div v-else-if="!sessions.length" class="rounded-xl border border-[#ffffff14] bg-[#111211] px-4 py-8 text-center text-sm text-[#b9b8b3]">
-        暂无面试记录。前往「AI 面试」开始一场面试，结束后报告将出现在此处。
+      <div v-else-if="!displayedSessions.length" class="rounded-xl border border-[#ffffff14] bg-[#111211] px-4 py-8 text-center text-sm text-[#b9b8b3]">
+        <template v-if="!sessions.length">
+          暂无面试记录。前往「AI 面试」开始一场面试，结束后报告将出现在此处。
+        </template>
+        <template v-else-if="hasEndedSessions">
+          报告生成中，请稍后点击「刷新」查看。
+        </template>
+        <template v-else>
+          暂无已结束的面试记录。进行中的会话请从「AI 面试」进入。
+        </template>
       </div>
       <div v-else class="overflow-x-auto">
-        <table class="w-full min-w-[720px] text-left text-sm">
+        <table class="w-full min-w-[600px] text-left text-sm">
           <thead>
             <tr class="border-b border-[#ffffff14] text-xs text-[#9f9f99]">
               <th class="pb-3 pr-4 font-medium">岗位</th>
               <th class="pb-3 pr-4 font-medium">开始时间</th>
               <th class="pb-3 pr-4 font-medium">结束时间</th>
               <th class="pb-3 pr-4 font-medium">轮次</th>
-              <th class="pb-3 pr-4 font-medium">会话</th>
               <th class="pb-3 pr-4 font-medium">报告</th>
               <th class="pb-3 font-medium text-right">操作</th>
             </tr>
           </thead>
           <tbody>
             <tr
-              v-for="row in sessions"
+              v-for="row in displayedSessions"
               :key="row.sessionId"
               class="border-b border-[#ffffff0d] text-[#e8e8e3]"
             >
               <td class="py-3 pr-4 align-middle">{{ row.positionName }}</td>
               <td class="py-3 pr-4 align-middle text-[#b9b8b3]">{{ formatDateTime(row.startedAt) }}</td>
-              <td class="py-3 pr-4 align-middle text-[#b9b8b3]">{{ row.endedAt ? formatDateTime(row.endedAt) : '—' }}</td>
+              <td class="py-3 pr-4 align-middle text-[#b9b8b3]">{{ formatDateTime(String(row.endedAt)) }}</td>
               <td class="py-3 pr-4 align-middle text-[#b9b8b3]">{{ row.currentTurnIndex || 0 }} 轮</td>
-              <td class="py-3 pr-4 align-middle">
-                <span
-                  class="inline-flex rounded-full border px-2 py-0.5 text-xs"
-                  :class="sessionStatusClass(row.status)"
-                >
-                  {{ sessionStatusLabel(row.status) }}
-                </span>
-              </td>
               <td class="py-3 pr-4 align-middle">
                 <span class="text-xs text-[#b9b8b3]">{{ evaluationStatusLabel(row.evaluationStatus) }}</span>
               </td>
               <td class="py-3 text-right align-middle">
                 <div class="flex items-center justify-end gap-3">
-                  <el-button
-                    v-if="row.status === 'IN_PROGRESS'"
-                    link
-                    class="!text-[#faf9f5]"
-                    @click="goInterview(row.positionId)"
-                  >
-                    前往面试
-                  </el-button>
                   <el-button
                     v-if="canOpenReport(row.evaluationStatus)"
                     type="primary"
@@ -78,7 +69,7 @@
                   >
                     查看报告
                   </el-button>
-                  <span v-if="row.status !== 'IN_PROGRESS' && !canOpenReport(row.evaluationStatus)" class="text-xs text-[#6b6b66]">—</span>
+                  <span v-if="!canOpenReport(row.evaluationStatus)" class="text-xs text-[#6b6b66]">—</span>
                 </div>
               </td>
             </tr>
@@ -126,17 +117,20 @@
         </div>
       </div>
 
-      <div class="mt-4 overflow-x-auto">
-        <div class="min-w-[900px] rounded-xl border border-[#ffffff14] bg-[#111211] p-4">
+      <div class="mt-4 w-full min-w-0">
+        <div class="w-full min-w-0 rounded-xl border border-[#ffffff14] bg-[#111211] p-4">
           <div class="mb-2 flex items-center justify-between text-xs text-[#9f9f99]">
             <span>每日活跃网格</span>
             <span>{{ interviewRangeLabel }}</span>
           </div>
-          <div class="grid grid-rows-7 grid-flow-col auto-cols-max gap-1">
+          <div
+            class="grid h-[108px] w-full min-w-0 grid-flow-col gap-1"
+            style="grid-template-rows: repeat(7, minmax(0, 1fr)); grid-auto-columns: minmax(0, 1fr)"
+          >
             <div
               v-for="cell in heatmapCells"
               :key="cell.date"
-              class="h-3 w-3 rounded-[3px] border border-[#ffffff10]"
+              class="min-h-0 min-w-0 rounded-[3px] border border-[#ffffff10]"
               :class="heatColorClass(cell.count)"
               :title="`${cell.date}：${cell.count}次`"
             />
@@ -151,6 +145,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import request from '../../utils/request'
+import { mockInterviewSessionSummary } from '../../mocks/interviewReportMock'
 
 type RangeType = 'all' | '30d' | '7d'
 
@@ -190,10 +185,27 @@ const interviewRangeLabel = computed(() => {
   return '最近 12 个月'
 })
 
+function sessionHasEndedAt(s: SessionSummary) {
+  const end = s.endedAt
+  return end != null && String(end).trim() !== ''
+}
+
+/** 是否存在至少一条已结束（有结束时间）的会话（用于空状态提示） */
+const hasEndedSessions = computed(() => sessions.value.some(sessionHasEndedAt))
+
+/** 已结束且报告非「生成中」的会话（生成中在前端不展示） */
+const displayedSessions = computed(() =>
+  [mockInterviewSessionSummary, ...sessions.value]
+    .filter(
+      (s) => sessionHasEndedAt(s) && s.evaluationStatus !== 'GENERATING'
+    )
+    .filter((session, index, list) => list.findIndex((item) => item.sessionId === session.sessionId) === index)
+)
+
 /** 按开始日期 yyyy-MM-dd 统计次数 */
 const countsByDate = computed(() => {
   const map = new Map<string, number>()
-  for (const s of sessions.value) {
+  for (const s of [mockInterviewSessionSummary, ...sessions.value]) {
     if (!s.startedAt) continue
     const day = s.startedAt.slice(0, 10)
     map.set(day, (map.get(day) ?? 0) + 1)
@@ -263,18 +275,6 @@ function formatDateTime(iso: string) {
   return d.toLocaleString('zh-CN', { hour12: false })
 }
 
-function sessionStatusLabel(status: string) {
-  if (status === 'IN_PROGRESS') return '进行中'
-  if (status === 'COMPLETED') return '已结束'
-  return status
-}
-
-function sessionStatusClass(status: string) {
-  if (status === 'IN_PROGRESS') return 'border-[#6ef17d40] bg-[#6ef17d1c] text-[#85f892]'
-  if (status === 'COMPLETED') return 'border-[#ffffff20] bg-[#ffffff08] text-[#c9c9c3]'
-  return 'border-[#ffffff14] text-[#b9b8b3]'
-}
-
 function evaluationStatusLabel(s: string) {
   const map: Record<string, string> = {
     NOT_STARTED: '未生成',
@@ -292,10 +292,6 @@ function canOpenReport(evaluationStatus: string) {
 
 function goReport(sessionId: number) {
   router.push({ name: 'interview-report', params: { sessionId: String(sessionId) } })
-}
-
-function goInterview(positionId: number) {
-  router.push({ name: 'interview', query: { positionId: String(positionId) } })
 }
 
 async function loadSessions() {

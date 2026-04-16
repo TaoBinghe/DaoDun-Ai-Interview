@@ -9,10 +9,14 @@ import com.daodun.service.ResumeExtractionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @Slf4j
 @Service
@@ -63,6 +67,9 @@ public class ResumeExtractionServiceImpl implements ResumeExtractionService {
     private final ArkChatService arkChatService;
     private final ObjectMapper objectMapper;
 
+    @Value("${resume.extraction-timeout-seconds:20}")
+    private long extractionTimeoutSeconds;
+
     @Override
     public ResumeExtractionResponse extractStructuredInfo(String resumeText) {
         if (resumeText == null || resumeText.isBlank()) {
@@ -73,14 +80,30 @@ public class ResumeExtractionServiceImpl implements ResumeExtractionService {
                     Map.of("role", "system", "content", SYSTEM_PROMPT),
                     Map.of("role", "user", "content", "请提取以下简历内容：\n" + resumeText)
             );
-            String raw = arkChatService.chatWithMessages(messages);
+            String raw = CompletableFuture
+                    .supplyAsync(() -> arkChatService.chatWithMessages(messages))
+                    .orTimeout(extractionTimeoutSeconds, TimeUnit.SECONDS)
+                    .join();
             String json = extractJson(raw);
             ResumeExtractionResponse parsed = objectMapper.readValue(json, ResumeExtractionResponse.class);
             return sanitize(parsed);
         } catch (Exception e) {
-            log.warn("[ResumeExtraction] LLM 提取失败，降级为完整文本: {}", e.getMessage());
+            Throwable root = unwrap(e);
+            if (root instanceof TimeoutException) {
+                log.warn("[ResumeExtraction] LLM 提取超时，{}s 后降级为完整文本", extractionTimeoutSeconds);
+                return buildFallback(resumeText);
+            }
+            log.warn("[ResumeExtraction] LLM 提取失败，降级为完整文本: {}", root.getMessage());
             return buildFallback(resumeText);
         }
+    }
+
+    private Throwable unwrap(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null) {
+            current = current.getCause();
+        }
+        return current;
     }
 
     private ResumeExtractionResponse sanitize(ResumeExtractionResponse data) {

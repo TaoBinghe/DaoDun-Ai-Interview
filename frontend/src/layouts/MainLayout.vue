@@ -3,16 +3,39 @@
     <!-- 导航栏 -->
     <nav class="sticky top-0 left-0 w-full z-50 bg-[#141413]">
       <div class="max-w-7xl mx-auto px-8 h-16 grid grid-cols-3 items-center">
-        <!-- 左侧：项目名 -->
-        <router-link to="/" class="text-xl font-medium tracking-tight hover:opacity-80 transition-opacity cursor-pointer text-[#f5f5f5] no-underline justify-self-start">
-          刀盾ai面试
+        <!-- 左侧：品牌 -->
+        <router-link
+          to="/"
+          class="flex items-center gap-2.5 justify-self-start text-[#f5f5f5] no-underline transition-opacity hover:opacity-80"
+        >
+          <img :src="brandLogo" alt="智面未来" class="h-9 w-auto shrink-0 rounded-lg object-contain" width="120" height="36" />
+          <span class="text-xl font-medium tracking-tight">智面未来</span>
         </router-link>
 
         <!-- 中间：导航条目居中 -->
         <div class="hidden md:flex items-center justify-center space-x-8">
           <router-link to="/" class="nav-link" exact-active-class="nav-link-active">首页</router-link>
           <router-link to="/resume" class="nav-link" active-class="nav-link-active">导入简历</router-link>
-          <router-link to="/interview" class="nav-link" active-class="nav-link-active">AI面试</router-link>
+          <el-dropdown trigger="hover" popper-class="dark-dropdown-popper" placement="bottom">
+            <span class="nav-link nav-link-trigger" :class="{ 'nav-link-active': isInterviewActive }">
+              AI面试
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item
+                  v-for="position in interviewPositions"
+                  :key="position.value"
+                >
+                  <router-link
+                    :to="{ path: '/interview', query: { position: position.value } }"
+                    class="dropdown-link"
+                  >
+                    {{ position.label }}
+                  </router-link>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
           <router-link to="/forum" class="nav-link" active-class="nav-link-active">论坛</router-link>
           <router-link to="/profile" class="nav-link" active-class="nav-link-active">个人中心</router-link>
         </div>
@@ -37,10 +60,20 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import brandLogo from '@resouce/logo.png'
 
 const userStore = useUserStore()
+const route = useRoute()
+const interviewPositions = [
+  { label: '后端开发', value: 'backend' },
+  { label: '前端开发', value: 'frontend' },
+  { label: '大模型算法', value: 'llm' }
+]
+
+const isInterviewActive = computed(() => route.path.startsWith('/interview'))
 
 onMounted(() => {
   if (!userStore.user) {
@@ -57,9 +90,23 @@ onMounted(() => {
   font-weight: 500;
   transition: color 0.2s;
 }
+
+.nav-link-trigger {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
 .nav-link:hover,
 .nav-link-active {
   color: rgb(245 245 245);
+}
+
+.dropdown-link {
+  display: block;
+  width: 100%;
+  color: inherit;
+  text-decoration: none;
 }
 </style>
 

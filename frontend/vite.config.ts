@@ -14,11 +14,15 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@resouce': fileURLToPath(new URL('../resouce', import.meta.url)),
     },
   },
   server: {
     port: 5000,
+    fs: {
+      allow: [fileURLToPath(new URL('..', import.meta.url))],
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:8081',

@@ -94,6 +94,7 @@ server:
 resume:
   max-text-length: 50000
   max-page-count: 15
+  extraction-timeout-seconds: 20
 
 # RAG 知识库配置
 rag:

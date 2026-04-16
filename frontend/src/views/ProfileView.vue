@@ -27,6 +27,15 @@
                 <span>{{ item.label }}</span>
               </el-menu-item>
             </el-menu>
+            <div class="mt-4 border-t border-[#faf9f5]/8 pt-4">
+              <el-button
+                class="w-full !h-10 !justify-center !rounded-xl !border-0 !bg-[#ef4444] !text-white hover:!bg-[#dc2626] [&_.el-icon]:!text-white"
+                @click="handleLogout"
+              >
+                <el-icon class="mr-1"><SwitchButton /></el-icon>
+                退出登录
+              </el-button>
+            </div>
           </aside>
         </el-col>
 
@@ -46,9 +55,24 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { Grid, Lock, Setting, User } from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
+import { Grid, Lock, Setting, SwitchButton, User } from '@element-plus/icons-vue'
+import { logout } from '../utils/authSession'
 
 const route = useRoute()
+
+async function handleLogout() {
+  try {
+    await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
+      confirmButtonText: '退出',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+  } catch {
+    return
+  }
+  logout()
+}
 
 const navItems = [
   { label: '基本信息', path: '/profile/info', icon: User },

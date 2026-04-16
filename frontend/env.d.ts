@@ -6,3 +6,13 @@ declare module '*.vue' {
   const component: DefineComponent<Record<string, unknown>, Record<string, unknown>, any>
   export default component
 }
+
+declare module '*.png' {
+  const src: string
+  export default src
+}
+
+declare module '@resouce/*' {
+  const src: string
+  export default src
+}

@@ -200,7 +200,7 @@ const contentParagraphs = computed(() => {
   // 按空行拆分 Markdown 文本，简单渲染为段落
   return post.value.content
     .split(/\n\s*\n/)
-    .map((p) => p.replace(/^[#>\-\*\s`]+/g, '').trim())
+    .map((p) => p.replace(/^[#>\-*\s`]+/g, '').trim())
     .filter(Boolean)
 })
 

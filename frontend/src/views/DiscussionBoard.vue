@@ -153,16 +153,6 @@
               </span>
             </div>
           </div>
-
-          <div class="hidden shrink-0 md:block" @click.stop>
-            <img
-              :src="post.author.avatar"
-              alt=""
-              class="h-24 w-24 rounded-lg object-cover ring-1 ring-white/10"
-              width="96"
-              height="96"
-            />
-          </div>
         </li>
       </ul>
     </div>

@@ -2,7 +2,7 @@
   <div class="min-h-[calc(100vh-64px)] flex flex-col items-center justify-start bg-[#141413] px-4 pt-16 md:pt-20 pb-20">
     <div class="text-center space-y-6 mb-10">
       <h1 class="text-4xl md:text-6xl font-bold tracking-tight text-[#faf9f5]">
-        <span class="text-[#faf9f5]/90">刀盾AI面试</span>
+        <span class="text-[#faf9f5]/90">智面未来</span>
         <RotatingText
           :texts="['即时反馈', '简历解析', '能力评估']"
           mainClassName="ml-4 md:ml-6 px-2 sm:px-2 md:px-3 bg-[#6ef17d] text-black overflow-hidden py-0.5 sm:py-1 md:py-2 justify-center rounded-xl inline-flex align-middle"

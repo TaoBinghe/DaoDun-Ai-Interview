@@ -101,8 +101,13 @@
         <section class="mb-8" v-if="report.abilityScores">
           <h2 class="section-title">综合能力分析</h2>
           <div class="card p-6">
-            <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] gap-8 items-start">
-              <div ref="radarChartRef" class="w-full h-80"></div>
+            <div class="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] xl:items-stretch">
+              <div class="flex w-full min-h-[320px] items-center justify-center xl:min-h-0">
+                <div
+                  ref="radarChartRef"
+                  class="aspect-square w-full max-w-[min(100%,22rem)] sm:max-w-[min(100%,26rem)] xl:max-w-[min(100%,36rem)]"
+                />
+              </div>
               <div class="space-y-4">
                 <article
                   v-for="item in abilityAnalysisItems"
@@ -319,6 +324,11 @@ import { RadarChart } from 'echarts/charts'
 import { TitleComponent, TooltipComponent, RadarComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import request from '../utils/request'
+import {
+  MOCK_INTERVIEW_SESSION_ID,
+  mockInterviewReport,
+  mockInterviewSessionSummary
+} from '../mocks/interviewReportMock'
 
 echarts.use([RadarChart, TitleComponent, TooltipComponent, RadarComponent, CanvasRenderer])
 
@@ -498,6 +508,8 @@ const initRadarChart = () => {
   const scores = report.value.abilityScores
   chartInstance.setOption({
     radar: {
+      center: ['50%', '50%'],
+      radius: '78%',
       indicator: [
         { name: '表达能力', max: 100 },
         { name: '应变能力', max: 100 },
@@ -508,7 +520,7 @@ const initRadarChart = () => {
       ],
       shape: 'polygon',
       splitNumber: 4,
-      axisName: { color: '#9ca3af', fontSize: 12 },
+      axisName: { color: '#9ca3af', fontSize: 13 },
       splitLine: { lineStyle: { color: 'rgba(250,249,245,0.08)' } },
       splitArea: { areaStyle: { color: ['rgba(110,241,125,0.02)', 'rgba(110,241,125,0.04)', 'rgba(110,241,125,0.02)', 'rgba(110,241,125,0.04)'] } },
       axisLine: { lineStyle: { color: 'rgba(250,249,245,0.1)' } }
@@ -528,9 +540,12 @@ const initRadarChart = () => {
         lineStyle: { color: '#6ef17d', width: 2 },
         itemStyle: { color: '#6ef17d' },
         symbol: 'circle',
-        symbolSize: 6
+        symbolSize: 7
       }]
     }]
+  })
+  nextTick(() => {
+    chartInstance?.resize()
   })
 }
 
@@ -545,6 +560,17 @@ const fetchEvaluation = async () => {
     failed.value = true
     failedMessage.value = '无效的会话ID'
     loading.value = false
+    return
+  }
+
+  if (Number(sessionId) === MOCK_INTERVIEW_SESSION_ID) {
+    positionName.value = mockInterviewSessionSummary.positionName
+    startTime.value = mockInterviewSessionSummary.startedAt
+    endTime.value = mockInterviewSessionSummary.endedAt ?? ''
+    report.value = mockInterviewReport
+    loading.value = false
+    await nextTick()
+    initRadarChart()
     return
   }
 
@@ -606,6 +632,12 @@ const fetchEvaluation = async () => {
 const fetchSessionDetail = async () => {
   const sessionId = route.params.sessionId as string
   if (!sessionId) return
+
+  if (Number(sessionId) === MOCK_INTERVIEW_SESSION_ID) {
+    turnCount.value = mockInterviewSessionSummary.currentTurnIndex || 0
+    return
+  }
+
   try {
     const res = await request.get(`/api/interview/sessions/${sessionId}`) as any
     if (res.code === 200 && res.data) {

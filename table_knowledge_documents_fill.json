@@ -1,0 +1,32 @@
+{
+  "slide": 1,
+  "table": 1,
+  "rows": 8,
+  "cols": 3,
+  "cells": [
+    { "row": 1, "col": 1, "text": "字段名" },
+    { "row": 1, "col": 2, "text": "数据类型" },
+    { "row": 1, "col": 3, "text": "说明" },
+    { "row": 2, "col": 1, "text": "id" },
+    { "row": 2, "col": 2, "text": "BIGINT" },
+    { "row": 2, "col": 3, "text": "主键，自增" },
+    { "row": 3, "col": 1, "text": "position_name" },
+    { "row": 3, "col": 2, "text": "VARCHAR(100)" },
+    { "row": 3, "col": 3, "text": "岗位名称，非空" },
+    { "row": 4, "col": 1, "text": "source_path" },
+    { "row": 4, "col": 2, "text": "VARCHAR(500)" },
+    { "row": 4, "col": 3, "text": "来源文件路径，非空" },
+    { "row": 5, "col": 1, "text": "chunk_count" },
+    { "row": 5, "col": 2, "text": "INTEGER" },
+    { "row": 5, "col": 3, "text": "切片数量，默认 0" },
+    { "row": 6, "col": 1, "text": "content_hash" },
+    { "row": 6, "col": 2, "text": "VARCHAR(64)" },
+    { "row": 6, "col": 3, "text": "内容哈希" },
+    { "row": 7, "col": 1, "text": "create_time" },
+    { "row": 7, "col": 2, "text": "TIMESTAMP" },
+    { "row": 7, "col": 3, "text": "创建时间" },
+    { "row": 8, "col": 1, "text": "update_time" },
+    { "row": 8, "col": 2, "text": "TIMESTAMP" },
+    { "row": 8, "col": 3, "text": "更新时间" }
+  ]
+}
