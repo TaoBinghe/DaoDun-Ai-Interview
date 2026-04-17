@@ -1,13 +1,13 @@
 <template>
   <div class="flex flex-col gap-6">
-    <el-card shadow="never" class="!rounded-2xl !border-[#ffffff14] !bg-[#1d1e1d]">
+    <el-card shadow="never" class="theme-el-card !rounded-2xl">
       <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 class="text-xl font-semibold text-[#f1f1ec]">面试历史</h2>
-          <p class="mt-1 text-xs text-[#9f9f99]">查看历次 AI 面试记录与评估报告（报告在会话结束后异步生成）。</p>
+          <h2 class="theme-title text-xl font-semibold">面试历史</h2>
+          <p class="mt-1 text-xs theme-text-muted">查看历次 AI 面试记录与评估报告（报告在会话结束后异步生成）。</p>
         </div>
         <el-button
-          class="!h-9 !rounded-xl !border-[#ffffff1f] !bg-[#2a2b2a] !px-4 !text-[#f1f1ec] hover:!bg-[#343533]"
+          class="theme-el-btn-secondary h-9! rounded-xl! px-4!"
           :loading="sessionsLoading"
           @click="loadSessions"
         >
@@ -15,7 +15,7 @@
         </el-button>
       </div>
 
-      <div v-if="sessionsError" class="mb-4 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-3 text-sm text-[#b91c1c]">
+      <div v-if="sessionsError" class="sessions-error mb-4 rounded-xl px-4 py-3 text-sm">
         {{ sessionsError }}
       </div>
 
@@ -36,7 +36,7 @@
       <div v-else class="overflow-x-auto">
         <table class="w-full min-w-[600px] text-left text-sm">
           <thead>
-            <tr class="border-b border-[#ffffff14] text-xs text-[#9f9f99]">
+            <tr class="sessions-head border-b text-xs theme-text-faint">
               <th class="pb-3 pr-4 font-medium">岗位</th>
               <th class="pb-3 pr-4 font-medium">开始时间</th>
               <th class="pb-3 pr-4 font-medium">结束时间</th>
@@ -49,14 +49,14 @@
             <tr
               v-for="row in displayedSessions"
               :key="row.sessionId"
-              class="border-b border-[#ffffff0d] text-[#e8e8e3]"
+              class="sessions-row border-b"
             >
               <td class="py-3 pr-4 align-middle">{{ row.positionName }}</td>
-              <td class="py-3 pr-4 align-middle text-[#b9b8b3]">{{ formatDateTime(row.startedAt) }}</td>
-              <td class="py-3 pr-4 align-middle text-[#b9b8b3]">{{ formatDateTime(String(row.endedAt)) }}</td>
-              <td class="py-3 pr-4 align-middle text-[#b9b8b3]">{{ row.currentTurnIndex || 0 }} 轮</td>
+              <td class="py-3 pr-4 align-middle theme-text-muted">{{ formatDateTime(row.startedAt) }}</td>
+              <td class="py-3 pr-4 align-middle theme-text-muted">{{ formatDateTime(String(row.endedAt)) }}</td>
+              <td class="py-3 pr-4 align-middle theme-text-muted">{{ row.currentTurnIndex || 0 }} 轮</td>
               <td class="py-3 pr-4 align-middle">
-                <span class="text-xs text-[#b9b8b3]">{{ evaluationStatusLabel(row.evaluationStatus) }}</span>
+                <span class="text-xs theme-text-muted">{{ evaluationStatusLabel(row.evaluationStatus) }}</span>
               </td>
               <td class="py-3 text-right align-middle">
                 <div class="flex items-center justify-end gap-3">
@@ -64,12 +64,12 @@
                     v-if="canOpenReport(row.evaluationStatus)"
                     type="primary"
                     link
-                    class="!text-[#6ef17d]"
+                    class="sessions-link theme-text-muted hover:!text-[color:var(--app-accent)]"
                     @click="goReport(row.sessionId)"
                   >
                     查看报告
                   </el-button>
-                  <span v-if="!canOpenReport(row.evaluationStatus)" class="text-xs text-[#6b6b66]">—</span>
+                  <span v-if="!canOpenReport(row.evaluationStatus)" class="text-xs theme-text-faint">—</span>
                 </div>
               </td>
             </tr>
@@ -78,19 +78,19 @@
       </div>
     </el-card>
 
-    <el-card shadow="never" class="!rounded-2xl !border-[#ffffff14] !bg-[#1d1e1d]">
+    <el-card shadow="never" class="theme-el-card !rounded-2xl">
       <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 class="text-xl font-semibold text-[#f1f1ec]">面试活跃度</h2>
-          <p class="mt-1 text-xs text-[#9f9f99]">按面试开始日期统计（与上方列表同源）。</p>
+          <h2 class="theme-title text-xl font-semibold">面试活跃度</h2>
+          <p class="mt-1 text-xs theme-text-muted">按面试开始日期统计（与上方列表同源）。</p>
         </div>
-        <div class="inline-flex rounded-xl border border-[#ffffff14] bg-[#111211] p-1">
+        <div class="range-tabs inline-flex rounded-xl p-1">
           <button
             v-for="item in rangeOptions"
             :key="item.value"
             type="button"
             class="rounded-lg px-3 py-1 text-xs transition-colors"
-            :class="interviewRange === item.value ? 'bg-[#2f3130] text-[#f1f1ec]' : 'text-[#9f9f99] hover:text-[#f1f1ec]'"
+            :class="interviewRange === item.value ? 'range-tab is-active' : 'range-tab'"
             @click="interviewRange = item.value"
           >
             {{ item.label }}
@@ -99,27 +99,27 @@
       </div>
 
       <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <div class="rounded-xl border border-[#ffffff14] bg-[#111211] p-4">
-          <p class="text-xs text-[#9f9f99]">区间内面试次数</p>
-          <p class="mt-2 text-2xl font-semibold text-[#f1f1ec]">{{ interviewStats.total }}</p>
+        <div class="stat-box rounded-xl p-4">
+          <p class="text-xs theme-text-faint">区间内面试次数</p>
+          <p class="mt-2 text-2xl font-semibold theme-title">{{ interviewStats.total }}</p>
         </div>
-        <div class="rounded-xl border border-[#ffffff14] bg-[#111211] p-4">
-          <p class="text-xs text-[#9f9f99]">最活跃日</p>
-          <p class="mt-2 text-sm font-medium text-[#f1f1ec]">{{ interviewStats.mostActiveDay }}</p>
+        <div class="stat-box rounded-xl p-4">
+          <p class="text-xs theme-text-faint">最活跃日</p>
+          <p class="mt-2 text-sm font-medium theme-title">{{ interviewStats.mostActiveDay }}</p>
         </div>
-        <div class="rounded-xl border border-[#ffffff14] bg-[#111211] p-4">
-          <p class="text-xs text-[#9f9f99]">最长连续天数</p>
-          <p class="mt-2 text-2xl font-semibold text-[#f1f1ec]">{{ interviewStats.longestStreak }}d</p>
+        <div class="stat-box rounded-xl p-4">
+          <p class="text-xs theme-text-faint">最长连续天数</p>
+          <p class="mt-2 text-2xl font-semibold theme-title">{{ interviewStats.longestStreak }}d</p>
         </div>
-        <div class="rounded-xl border border-[#ffffff14] bg-[#111211] p-4">
-          <p class="text-xs text-[#9f9f99]">当前连续天数</p>
-          <p class="mt-2 text-2xl font-semibold text-[#f1f1ec]">{{ interviewStats.currentStreak }}d</p>
+        <div class="stat-box rounded-xl p-4">
+          <p class="text-xs theme-text-faint">当前连续天数</p>
+          <p class="mt-2 text-2xl font-semibold theme-title">{{ interviewStats.currentStreak }}d</p>
         </div>
       </div>
 
       <div class="mt-4 w-full min-w-0">
-        <div class="w-full min-w-0 rounded-xl border border-[#ffffff14] bg-[#111211] p-4">
-          <div class="mb-2 flex items-center justify-between text-xs text-[#9f9f99]">
+        <div class="heatmap-shell w-full min-w-0 rounded-xl p-4">
+          <div class="mb-2 flex items-center justify-between text-xs theme-text-faint">
             <span>每日活跃网格</span>
             <span>{{ interviewRangeLabel }}</span>
           </div>
@@ -130,7 +130,7 @@
             <div
               v-for="cell in heatmapCells"
               :key="cell.date"
-              class="min-h-0 min-w-0 rounded-[3px] border border-[#ffffff10]"
+              class="heatmap-cell min-h-0 min-w-0 rounded-[3px]"
               :class="heatColorClass(cell.count)"
               :title="`${cell.date}：${cell.count}次`"
             />
@@ -140,6 +140,75 @@
     </el-card>
   </div>
 </template>
+
+<style scoped>
+.sessions-error {
+  border: 1px solid color-mix(in srgb, var(--app-danger) 28%, transparent);
+  background: var(--app-danger-soft);
+  color: var(--app-danger);
+}
+
+.sessions-head {
+  border-color: var(--app-border);
+}
+
+.sessions-row {
+  border-color: color-mix(in srgb, var(--app-border) 80%, transparent);
+  color: var(--app-text);
+}
+
+.sessions-link :deep(span) {
+  color: inherit;
+}
+
+.range-tabs {
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-soft);
+}
+
+.range-tab {
+  color: var(--app-text-faint);
+}
+
+.range-tab:hover {
+  color: var(--app-text);
+}
+
+.range-tab.is-active {
+  background: var(--app-surface-strong);
+  color: var(--app-text);
+}
+
+.stat-box,
+.heatmap-shell {
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-border);
+}
+
+.heatmap-cell {
+  border: 1px solid var(--app-border);
+}
+
+.heat-0 {
+  background: color-mix(in srgb, var(--app-surface-strong) 45%, transparent);
+}
+
+.heat-1 {
+  background: color-mix(in srgb, var(--app-accent) 25%, var(--app-surface-strong));
+}
+
+.heat-2 {
+  background: color-mix(in srgb, var(--app-accent) 45%, var(--app-surface-strong));
+}
+
+.heat-3 {
+  background: color-mix(in srgb, var(--app-accent) 65%, var(--app-surface-strong));
+}
+
+.heat-4 {
+  background: color-mix(in srgb, var(--app-accent) 82%, var(--app-surface-strong));
+}
+</style>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
@@ -261,11 +330,11 @@ const interviewStats = computed(() => {
 })
 
 function heatColorClass(count: number) {
-  if (count <= 0) return 'bg-[#1f2220]'
-  if (count === 1) return 'bg-[#1f5a36]'
-  if (count === 2) return 'bg-[#20884d]'
-  if (count === 3) return 'bg-[#2bb666]'
-  return 'bg-[#5fe086]'
+  if (count <= 0) return 'heat-0'
+  if (count === 1) return 'heat-1'
+  if (count === 2) return 'heat-2'
+  if (count === 3) return 'heat-3'
+  return 'heat-4'
 }
 
 function formatDateTime(iso: string) {

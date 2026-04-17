@@ -4,11 +4,11 @@
     class="w-full flex flex-col gap-4 h-[min(70vh,560px)] min-h-[480px] max-h-[560px] shrink-0 box-border"
   >
     <div
-      class="flex-1 min-h-0 flex flex-col bg-[#1f1e1d] rounded-2xl border border-[#faf9f5]/10 overflow-hidden"
+      class="chat-shell flex-1 min-h-0 flex flex-col rounded-2xl border overflow-hidden"
     >
       <div
         ref="messagesContainer"
-        class="flex-1 min-h-0 overflow-y-auto p-6 space-y-4"
+        class="theme-scrollbar flex-1 min-h-0 overflow-y-auto p-6 space-y-4"
       >
         <div
           v-for="(msg, idx) in messages"
@@ -20,8 +20,8 @@
             :class="[
               'max-w-[70%] px-4 py-3 rounded-lg break-words',
               msg.role === 'user'
-                ? 'bg-[#6ef17d] text-black'
-                : 'bg-[#2b2a27] text-[#faf9f5] border border-[#faf9f5]/10'
+                ? 'chat-user-bubble'
+                : 'chat-ai-bubble'
             ]"
           >
             <p class="text-sm md:text-base leading-relaxed whitespace-pre-wrap">
@@ -47,13 +47,13 @@
         type="text"
         placeholder="输入你的回答..."
         :disabled="disabled || loading"
-        class="flex-1 px-4 py-3 rounded-lg bg-[#2b2a27] border border-[#faf9f5]/10 text-[#faf9f5] placeholder-[#faf9f5]/40 focus:outline-none focus:border-[#6ef17d]/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        class="chat-input flex-1 px-4 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       />
       <button
         type="button"
         @click="handleSend"
         :disabled="disabled || loading || !inputText.trim()"
-        class="px-6 py-3 rounded-lg bg-[#6ef17d] text-black font-bold transition-all duration-200 hover:bg-[#5edb6b] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+        class="chat-send-btn px-6 py-3 rounded-lg font-bold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="22" x2="11" y1="2" y2="13" />
@@ -147,5 +147,47 @@ const handleSend = () => {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #5edb6b;
+}
+</style>
+
+<style scoped>
+.chat-shell {
+  background: var(--app-surface);
+  border-color: var(--app-border);
+}
+
+.chat-user-bubble {
+  background: var(--app-accent);
+  color: var(--app-accent-contrast);
+}
+
+.chat-ai-bubble {
+  background: var(--app-surface-strong);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
+}
+
+.chat-input {
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-border);
+  color: var(--app-text);
+}
+
+.chat-input::placeholder {
+  color: var(--app-text-faint);
+}
+
+.chat-input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--app-accent) 45%, transparent);
+}
+
+.chat-send-btn {
+  background: var(--app-accent);
+  color: var(--app-accent-contrast);
+}
+
+.chat-send-btn:hover:not(:disabled) {
+  background: var(--app-accent-strong);
 }
 </style>

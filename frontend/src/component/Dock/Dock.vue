@@ -73,7 +73,7 @@ const handleMouseLeave = () => {
     <div
       @mousemove="handleMouseMove"
       @mouseleave="handleMouseLeave"
-      :class="`${props.className} absolute bottom-2 left-1/2 transform -translate-x-1/2 flex items-end w-fit gap-4 rounded-2xl border-neutral-700 border-2 pb-2 px-4`"
+      :class="`${props.className} dock-panel absolute bottom-2 left-1/2 transform -translate-x-1/2 flex items-end w-fit gap-4 rounded-2xl pb-2 px-4`"
       :style="{ height: props.panelHeight + 'px' }"
       role="toolbar"
       aria-label="Application dock"
@@ -198,7 +198,7 @@ const DockItem = defineComponent({
         onFocus: this.handleFocus,
         onBlur: this.handleBlur,
         onClick: this.onClick,
-        class: `relative cursor-pointer inline-flex items-center justify-center rounded-xl bg-[#111] border-neutral-700 border-2 shadow-md text-white ${this.className}`,
+        class: `dock-item relative cursor-pointer inline-flex items-center justify-center rounded-xl shadow-md ${this.className}`,
         tabindex: 0,
         role: 'button',
         'aria-haspopup': 'true',
@@ -255,7 +255,7 @@ const DockLabel = defineComponent({
     return h(
       'div',
       {
-        class: `${this.className} absolute -top-8 left-1/2 w-fit whitespace-pre rounded-md border border-neutral-700 bg-[#111] px-2 py-0.5 text-xs text-white transition-all duration-200`,
+        class: `${this.className} dock-label absolute -top-8 left-1/2 w-fit whitespace-pre rounded-md px-2 py-0.5 text-xs transition-all duration-200`,
         role: 'tooltip',
         style: {
           transform: 'translateX(-50%)',
@@ -288,7 +288,7 @@ const DockIcon = defineComponent({
 });
 
 export default defineComponent({
-  name: 'Dock',
+  name: 'AppDock',
   components: {
     DockItem
   }
@@ -316,10 +316,38 @@ export default defineComponent({
   width: 10px;
   height: 10px;
   border-radius: 9999px;
-  background: #ef4444;
-  border: 2px solid #111;
+  background: var(--app-danger);
+  border: 2px solid var(--app-surface-strong);
   pointer-events: none;
   z-index: 3;
   animation: dock-notify-breathe 1.6s ease-in-out infinite;
+}
+
+.dock-panel {
+  background: var(--app-overlay);
+  border: 1px solid var(--app-border-strong);
+  box-shadow: var(--app-shadow);
+  backdrop-filter: blur(14px);
+}
+
+.dock-item {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border-strong);
+  color: var(--app-text);
+}
+
+.dock-item:hover {
+  background: var(--app-surface-strong);
+}
+
+.dock-item:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--app-accent) 35%, transparent);
+  outline-offset: 2px;
+}
+
+.dock-label {
+  border: 1px solid var(--app-border-strong);
+  background: var(--app-surface);
+  color: var(--app-text);
 }
 </style>

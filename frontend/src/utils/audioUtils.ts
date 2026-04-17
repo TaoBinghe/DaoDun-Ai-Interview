@@ -49,6 +49,9 @@ function float32ToS16LEResampled(
 }
 
 const TARGET_SAMPLE_RATE = 16000
+type WindowWithWebkitAudioContext = Window & {
+  webkitAudioContext?: typeof AudioContext
+}
 const PCM_CHUNK_BYTES = 640
 const RECORDER_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
   channelCount: 1,
@@ -94,7 +97,9 @@ export class PcmRecorder {
 
   private setupAudioGraph(): void {
     if (!this.stream) return
-    this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const w = window as WindowWithWebkitAudioContext
+    const Ctx = w.AudioContext || w.webkitAudioContext
+    this.audioContext = new Ctx()
     const sourceRate = this.audioContext.sampleRate
     this.source = this.audioContext.createMediaStreamSource(this.stream)
     // 较小 buffer 更接近 20ms 一帧，有利于 ASR 流式识别
@@ -226,7 +231,13 @@ let audioUnlocked = false
 export function unlockAudioForPlayback(): void {
   if (audioUnlocked) return
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const w = window as WindowWithWebkitAudioContext
+    const Ctx = w.AudioContext || w.webkitAudioContext
+    if (!Ctx) {
+      audioUnlocked = true
+      return
+    }
+    const ctx = new Ctx()
     if (ctx.state === 'suspended') {
       ctx.resume()
     }
@@ -246,8 +257,8 @@ export async function playBase64Audio(base64: string, mimeType = 'audio/mpeg'): 
   const audio = new Audio(`data:${normalizedMime};base64,${base64}`)
   try {
     await audio.play()
-  } catch (e: any) {
-    const msg = e?.message ?? String(e)
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
     if (/user interaction|interact|gesture|allowed|play\(\)/i.test(msg)) {
       throw new Error('语音播放被浏览器阻止，请先点击页面任意处后再试')
     }

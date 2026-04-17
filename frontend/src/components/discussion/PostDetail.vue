@@ -1,10 +1,10 @@
 <template>
-  <div class="min-h-[calc(100vh-64px)] bg-[#141413] px-4 py-8 text-[#f5f5f5]">
+  <div class="theme-page min-h-[calc(100vh-64px)] px-4 py-8">
     <div class="mx-auto max-w-4xl">
       <div class="mb-6 flex items-center gap-3">
         <button
           type="button"
-          class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#2c2c2b] text-[#faf9f5] transition-colors hover:bg-[#383837] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+          class="post-back-btn inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors focus:outline-none focus-visible:ring-2"
           aria-label="返回讨论区"
           @click="router.back()"
         >
@@ -12,12 +12,12 @@
         </button>
       </div>
 
-      <h1 v-if="post" class="text-2xl md:text-3xl font-medium tracking-tight text-[#faf9f5]">
+      <h1 v-if="post" class="theme-title text-2xl md:text-3xl font-medium tracking-tight">
         {{ post.title }}
       </h1>
-      <p v-else class="text-sm text-gray-400">帖子不存在或已被删除。</p>
+      <p v-else class="text-sm theme-text-muted">帖子不存在或已被删除。</p>
 
-      <div v-if="post" class="mt-4 flex flex-wrap items-center gap-4 text-sm text-gray-400">
+      <div v-if="post" class="mt-4 flex flex-wrap items-center gap-4 text-sm theme-text-muted">
         <div class="flex items-center gap-3">
           <img
             :src="post.author.avatar"
@@ -25,12 +25,12 @@
             class="h-10 w-10 rounded-full object-cover ring-1 ring-white/10"
           />
           <div>
-            <p class="text-gray-100">{{ post.author.username }}</p>
-            <p class="text-xs text-gray-400">{{ post.author.rank }}</p>
+            <p class="theme-title">{{ post.author.username }}</p>
+            <p class="text-xs theme-text-muted">{{ post.author.rank }}</p>
           </div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-3 text-xs md:text-sm text-gray-400">
+        <div class="flex flex-wrap items-center gap-3 text-xs md:text-sm theme-text-muted">
           <div class="inline-flex items-center gap-1">
             <Eye class="h-4 w-4" :stroke-width="2" />
             <span>{{ formatCount(post.stats.views) }}</span>
@@ -54,17 +54,17 @@
         <span
           v-for="tag in post.tags"
           :key="tag"
-          class="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-200"
+          class="post-tag inline-flex items-center rounded-full px-3 py-1 text-xs"
         >
           {{ tag }}
         </span>
       </div>
 
-      <section v-if="post" class="mt-6 prose prose-invert max-w-none">
+      <section v-if="post" class="post-content mt-6 prose max-w-none">
         <p
           v-for="(paragraph, idx) in contentParagraphs"
           :key="idx"
-          class="mb-4 text-[15px] leading-relaxed text-[#f5f5f5]"
+          class="mb-4 text-[15px] leading-relaxed theme-text-soft"
         >
           {{ paragraph }}
         </p>
@@ -73,12 +73,12 @@
       <div v-if="post" class="mt-6 flex flex-wrap gap-4">
         <button
           type="button"
-          class="inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm text-gray-400 transition-colors hover:text-gray-200"
+          class="post-action inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm transition-colors"
           @click="toggleLike"
         >
           <ThumbsUp
             class="h-4 w-4"
-            :class="isLikedDetail ? 'text-emerald-400' : ''"
+            :class="isLikedDetail ? 'post-liked' : ''"
             :stroke-width="2"
           />
           <span>{{ likeCount }}</span>
@@ -86,12 +86,12 @@
 
         <button
           type="button"
-          class="inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm text-gray-400 transition-colors hover:text-gray-200"
+          class="post-action inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm transition-colors"
           @click="toggleStar"
         >
           <Star
             class="h-4 w-4"
-            :class="isStarred ? 'text-yellow-300' : ''"
+            :class="isStarred ? 'post-starred' : ''"
             :stroke-width="2"
           />
           <span>{{ isStarred ? '已收藏' : '收藏' }}</span>
@@ -99,7 +99,7 @@
 
         <button
           type="button"
-          class="inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm text-gray-400 transition-colors hover:text-gray-200"
+          class="post-action inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm transition-colors"
         >
           <MessageSquare class="h-4 w-4" :stroke-width="2" />
           <span>评论</span>
@@ -107,7 +107,7 @@
 
         <button
           type="button"
-          class="inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm text-gray-400 transition-colors hover:text-gray-200"
+          class="post-action inline-flex items-center gap-2 rounded-md px-1 py-1 text-sm transition-colors"
         >
           <Share2 class="h-4 w-4" :stroke-width="2" />
           <span>分享</span>
@@ -115,7 +115,7 @@
       </div>
 
       <section class="mt-10">
-        <h2 class="text-sm font-medium text-gray-300">全部评论</h2>
+        <h2 class="text-sm font-medium theme-text-soft">全部评论</h2>
         <div class="mt-4 space-y-4">
           <article
             v-for="comment in comments"
@@ -128,15 +128,15 @@
               class="row-start-1 h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-white/10"
             />
             <div
-              class="row-start-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-sm leading-relaxed text-gray-400"
+              class="row-start-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-sm leading-relaxed theme-text-muted"
             >
-              <span class="font-medium text-gray-200">{{ comment.authorName }}</span>
+              <span class="font-medium theme-text-soft">{{ comment.authorName }}</span>
               <span class="text-white/20">·</span>
               <span>{{ comment.createdAt }}</span>
               <span class="text-white/20">·</span>
               <span>IP：{{ comment.ipLocation }}</span>
             </div>
-            <p class="col-start-2 row-start-2 min-w-0 text-sm leading-relaxed text-gray-100">
+            <p class="col-start-2 row-start-2 min-w-0 text-sm leading-relaxed theme-text-soft">
               {{ comment.content }}
             </p>
           </article>
@@ -145,6 +145,48 @@
     </div>
   </div>
 </template>
+
+<style scoped>
+.post-back-btn {
+  background: var(--app-surface-strong);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
+}
+
+.post-back-btn:hover {
+  filter: brightness(1.05);
+}
+
+.post-back-btn:focus-visible {
+  outline-color: color-mix(in srgb, var(--app-accent) 35%, transparent);
+}
+
+.post-tag {
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
+}
+
+.post-content {
+  color: var(--app-text);
+}
+
+.post-action {
+  color: var(--app-text-muted);
+}
+
+.post-action:hover {
+  color: var(--app-text);
+}
+
+.post-liked {
+  color: var(--app-success);
+}
+
+.post-starred {
+  color: var(--app-warning);
+}
+</style>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'

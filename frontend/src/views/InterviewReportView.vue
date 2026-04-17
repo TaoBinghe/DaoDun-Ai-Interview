@@ -1,22 +1,22 @@
 <template>
-  <div class="min-h-[calc(100vh-64px)] bg-[#141413] text-[#faf9f5] px-4 py-10">
+  <div class="theme-page min-h-[calc(100vh-64px)] px-4 py-10">
     <div class="max-w-4xl mx-auto">
 
       <!-- 加载状态 -->
       <div v-if="loading" class="flex flex-col items-center justify-center py-32 gap-6">
-        <div class="w-16 h-16 border-4 border-[#6ef17d]/30 border-t-[#6ef17d] rounded-full animate-spin"></div>
-        <p class="text-gray-400 text-lg">{{ loadingText }}</p>
+        <div class="report-spinner w-16 h-16 border-4 rounded-full animate-spin"></div>
+        <p class="text-lg theme-text-muted">{{ loadingText }}</p>
       </div>
 
       <!-- 失败状态 -->
       <div v-else-if="failed" class="flex flex-col items-center justify-center py-32 gap-4">
-        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--app-danger)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10" />
           <line x1="15" y1="9" x2="9" y2="15" />
           <line x1="9" y1="9" x2="15" y2="15" />
         </svg>
-        <p class="text-gray-400 text-lg">{{ failedMessage }}</p>
-        <button @click="router.push({ name: 'interview' })" class="mt-4 px-6 py-2 bg-[#1f1e1d] border border-[#faf9f5]/10 rounded-lg text-sm hover:bg-[#2b2a27] transition-colors">
+        <p class="text-lg theme-text-muted">{{ failedMessage }}</p>
+        <button @click="router.push({ name: 'interview' })" class="report-btn-secondary mt-4 px-6 py-2 rounded-lg text-sm transition-colors">
           返回面试
         </button>
       </div>
@@ -28,8 +28,8 @@
         <section class="mb-10">
           <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div>
-              <h1 class="text-3xl font-bold mb-3">{{ positionName }}</h1>
-              <div class="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-400">
+              <h1 class="theme-title text-3xl font-bold mb-3">{{ positionName }}</h1>
+              <div class="flex flex-wrap gap-x-6 gap-y-2 text-sm theme-text-muted">
                 <span class="flex items-center gap-1.5">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                   面试时长：{{ duration }}
@@ -48,7 +48,7 @@
             <div class="flex flex-col items-center gap-2 shrink-0">
               <div class="relative w-24 h-24">
                 <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90">
-                  <circle cx="50" cy="50" r="42" fill="none" stroke="#2b2a27" stroke-width="8" />
+                  <circle cx="50" cy="50" r="42" fill="none" :stroke="ringTrackColor" stroke-width="8" />
                   <circle cx="50" cy="50" r="42" fill="none" :stroke="scoreColor" stroke-width="8"
                     stroke-linecap="round" :stroke-dasharray="scoreCircle" />
                 </svg>
@@ -67,28 +67,28 @@
         <section class="mb-8">
           <h2 class="section-title">面试官评价</h2>
           <div class="card p-6">
-            <p class="text-[#faf9f5]/90 leading-relaxed mb-6">{{ report.overallComment }}</p>
+            <p class="theme-text-soft leading-relaxed mb-6">{{ report.overallComment }}</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6" v-if="report.knowledgeAssessment">
               <div>
-                <h3 class="text-sm font-semibold text-[#6ef17d] mb-3 flex items-center gap-2">
+                <h3 class="text-sm font-semibold text-[var(--app-accent)] mb-3 flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                   亮点
                 </h3>
                 <ul class="space-y-2">
-                  <li v-for="(s, i) in report.knowledgeAssessment.strengths" :key="i" class="text-sm text-gray-300 flex items-start gap-2">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[#6ef17d] mt-1.5 shrink-0"></span>
+                  <li v-for="(s, i) in report.knowledgeAssessment.strengths" :key="i" class="text-sm theme-text-soft flex items-start gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[var(--app-accent)] mt-1.5 shrink-0"></span>
                     {{ s }}
                   </li>
                 </ul>
               </div>
               <div>
-                <h3 class="text-sm font-semibold text-[#f59e0b] mb-3 flex items-center gap-2">
+                <h3 class="text-sm font-semibold text-[var(--app-warning)] mb-3 flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                   待改进
                 </h3>
                 <ul class="space-y-2">
-                  <li v-for="(w, i) in report.knowledgeAssessment.weaknesses" :key="i" class="text-sm text-gray-300 flex items-start gap-2">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[#f59e0b] mt-1.5 shrink-0"></span>
+                  <li v-for="(w, i) in report.knowledgeAssessment.weaknesses" :key="i" class="text-sm theme-text-soft flex items-start gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[var(--app-warning)] mt-1.5 shrink-0"></span>
                     {{ w }}
                   </li>
                 </ul>
@@ -112,15 +112,15 @@
                 <article
                   v-for="item in abilityAnalysisItems"
                   :key="item.key"
-                  class="rounded-xl border border-[#faf9f5]/6 bg-[#141413] px-4 py-3"
+                  class="report-ability-item rounded-xl px-4 py-3"
                 >
                   <div class="flex items-center justify-between gap-4">
-                    <h3 class="text-sm font-semibold text-[#faf9f5]">{{ item.label }}</h3>
+                    <h3 class="text-sm font-semibold theme-title">{{ item.label }}</h3>
                     <span class="text-sm font-bold" :style="{ color: abilityScoreColor(item.rawScore) }">
                       {{ item.displayScore }}/10
                     </span>
                   </div>
-                  <p class="mt-2 text-sm leading-6 text-[#faf9f5]/65">{{ item.comment }}</p>
+                  <p class="mt-2 text-sm leading-6 theme-text-muted">{{ item.comment }}</p>
                 </article>
               </div>
             </div>
@@ -133,13 +133,13 @@
           <div class="card p-6 space-y-5">
             <div v-for="(topic, i) in report.knowledgeAssessment.topicDetails" :key="i">
               <div class="flex items-center justify-between mb-1.5">
-                <span class="text-sm font-medium text-[#faf9f5]/90">{{ topic.topic }}</span>
+                <span class="text-sm font-medium theme-title">{{ topic.topic }}</span>
                 <span class="text-sm font-bold" :style="{ color: topicScoreColor(topic.score) }">{{ topic.score }}/10</span>
               </div>
-              <div class="w-full h-2 bg-[#2b2a27] rounded-full overflow-hidden">
+              <div class="report-progress-track w-full h-2 rounded-full overflow-hidden">
                 <div class="h-full rounded-full transition-all duration-700" :style="{ width: (topic.score * 10) + '%', background: topicBarGradient(topic.score) }"></div>
               </div>
-              <p class="text-xs text-gray-500 mt-1">{{ topic.comment }}</p>
+              <p class="text-xs theme-text-muted mt-1">{{ topic.comment }}</p>
             </div>
           </div>
         </section>
@@ -152,22 +152,22 @@
               <!-- 题目头部 -->
               <button
                 @click="toggleQuestion(i)"
-                class="w-full flex items-center justify-between p-5 text-left hover:bg-[#faf9f5]/2 transition-colors"
+                class="report-q-toggle w-full flex items-center justify-between p-5 text-left transition-colors"
               >
                 <div class="flex items-center gap-3">
-                  <span class="w-7 h-7 rounded-lg bg-[#6ef17d]/15 text-[#6ef17d] flex items-center justify-center text-sm font-bold shrink-0">
+                  <span class="report-q-index w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold shrink-0">
                     {{ q.questionIndex }}
                   </span>
-                  <span class="text-sm font-medium text-[#faf9f5]/90 line-clamp-1">{{ q.questionContent }}</span>
+                  <span class="text-sm font-medium theme-text-soft line-clamp-1">{{ q.questionContent }}</span>
                 </div>
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                  class="text-gray-500 transition-transform duration-200 shrink-0" :class="{ 'rotate-180': expandedQuestions.has(i) }">
+                  class="theme-text-faint transition-transform duration-200 shrink-0" :class="{ 'rotate-180': expandedQuestions.has(i) }">
                   <polyline points="6 9 12 15 18 9"/>
                 </svg>
               </button>
 
               <!-- 展开内容 -->
-              <div v-show="expandedQuestions.has(i)" class="border-t border-[#faf9f5]/5 p-5 space-y-5">
+              <div v-show="expandedQuestions.has(i)" class="report-q-body border-t p-5 space-y-5">
                 <!-- 题目原题 -->
                 <div>
                   <h4 class="qa-label">题目原题</h4>
@@ -188,25 +188,25 @@
                 <!-- 面试者回答 -->
                 <div>
                   <h4 class="qa-label">面试者回答</h4>
-                  <p class="qa-text bg-[#141413] rounded-lg p-3">{{ q.candidateAnswer }}</p>
+                  <p class="qa-text report-q-answer rounded-lg p-3">{{ q.candidateAnswer }}</p>
                 </div>
 
                 <!-- 优点 / 待改进 -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div v-if="q.strengths?.length">
-                    <h4 class="qa-label text-[#6ef17d]">回答优点</h4>
+                    <h4 class="qa-label text-[var(--app-accent)]">回答优点</h4>
                     <ul class="space-y-1.5">
-                      <li v-for="(s, si) in q.strengths" :key="si" class="text-sm text-gray-300 flex items-start gap-2">
-                        <span class="w-1.5 h-1.5 rounded-full bg-[#6ef17d] mt-1.5 shrink-0"></span>
+                      <li v-for="(s, si) in q.strengths" :key="si" class="text-sm theme-text-soft flex items-start gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-[var(--app-accent)] mt-1.5 shrink-0"></span>
                         {{ s }}
                       </li>
                     </ul>
                   </div>
                   <div v-if="q.improvements?.length">
-                    <h4 class="qa-label text-[#f59e0b]">待改进</h4>
+                    <h4 class="qa-label text-[var(--app-warning)]">待改进</h4>
                     <ul class="space-y-1.5">
-                      <li v-for="(imp, ii) in q.improvements" :key="ii" class="text-sm text-gray-300 flex items-start gap-2">
-                        <span class="w-1.5 h-1.5 rounded-full bg-[#f59e0b] mt-1.5 shrink-0"></span>
+                      <li v-for="(imp, ii) in q.improvements" :key="ii" class="text-sm theme-text-soft flex items-start gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-[var(--app-warning)] mt-1.5 shrink-0"></span>
                         {{ imp }}
                       </li>
                     </ul>
@@ -220,8 +220,8 @@
                 </div>
 
                 <!-- 解题思路和参考答案（可折叠） -->
-                <div v-if="q.solutionApproach || q.referenceAnswer" class="border-t border-[#faf9f5]/5 pt-4">
-                  <button @click="toggleAnswer(i)" class="text-sm text-[#6ef17d] hover:text-[#5edb6b] transition-colors flex items-center gap-1.5">
+                <div v-if="q.solutionApproach || q.referenceAnswer" class="report-q-foot border-t pt-4">
+                  <button @click="toggleAnswer(i)" class="report-link text-sm transition-colors flex items-center gap-1.5">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                     </svg>
@@ -230,11 +230,11 @@
                   <div v-show="expandedAnswers.has(i)" class="mt-3 space-y-3">
                     <div v-if="q.solutionApproach">
                       <h4 class="qa-label">解题思路</h4>
-                      <p class="qa-text bg-[#141413] rounded-lg p-3">{{ q.solutionApproach }}</p>
+                      <p class="qa-text report-q-answer rounded-lg p-3">{{ q.solutionApproach }}</p>
                     </div>
                     <div v-if="q.referenceAnswer">
                       <h4 class="qa-label">参考答案</h4>
-                      <p class="qa-text bg-[#141413] rounded-lg p-3 whitespace-pre-wrap">{{ q.referenceAnswer }}</p>
+                      <p class="qa-text report-q-answer rounded-lg p-3 whitespace-pre-wrap">{{ q.referenceAnswer }}</p>
                     </div>
                   </div>
                 </div>
@@ -254,8 +254,8 @@
                   学习提升方向
                 </h3>
                 <ul class="space-y-2">
-                  <li v-for="(l, i) in report.recommendations.learning" :key="i" class="text-sm text-gray-300 flex items-start gap-2">
-                    <span class="text-[#6ef17d] font-bold shrink-0">{{ i + 1 }}.</span>
+                  <li v-for="(l, i) in report.recommendations.learning" :key="i" class="text-sm theme-text-soft flex items-start gap-2">
+                    <span class="text-[var(--app-accent)] font-bold shrink-0">{{ i + 1 }}.</span>
                     {{ l }}
                   </li>
                 </ul>
@@ -266,7 +266,7 @@
                   情绪管理建议
                 </h3>
                 <ul class="space-y-2">
-                  <li v-for="(e, i) in report.recommendations.emotional" :key="i" class="text-sm text-gray-300 flex items-start gap-2">
+                  <li v-for="(e, i) in report.recommendations.emotional" :key="i" class="text-sm theme-text-soft flex items-start gap-2">
                     <span class="text-[#a78bfa] font-bold shrink-0">{{ i + 1 }}.</span>
                     {{ e }}
                   </li>
@@ -280,13 +280,13 @@
         <section class="mb-8" v-if="report.emotionAssessment">
           <h2 class="section-title">情绪状态评估</h2>
           <div class="card p-6">
-            <p class="text-sm text-[#faf9f5]/80 leading-relaxed mb-4">{{ report.emotionAssessment.summary }}</p>
+            <p class="text-sm theme-text-soft leading-relaxed mb-4">{{ report.emotionAssessment.summary }}</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div v-if="report.emotionAssessment.positives?.length">
                 <h3 class="text-xs font-semibold text-[#6ef17d] mb-2">积极表现</h3>
                 <ul class="space-y-1.5">
-                  <li v-for="(p, i) in report.emotionAssessment.positives" :key="i" class="text-sm text-gray-300 flex items-start gap-2">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[#6ef17d] mt-1.5 shrink-0"></span>
+                  <li v-for="(p, i) in report.emotionAssessment.positives" :key="i" class="text-sm theme-text-soft flex items-start gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[var(--app-accent)] mt-1.5 shrink-0"></span>
                     {{ p }}
                   </li>
                 </ul>
@@ -294,8 +294,8 @@
               <div v-if="report.emotionAssessment.issues?.length">
                 <h3 class="text-xs font-semibold text-[#f59e0b] mb-2">需关注</h3>
                 <ul class="space-y-1.5">
-                  <li v-for="(issue, i) in report.emotionAssessment.issues" :key="i" class="text-sm text-gray-300 flex items-start gap-2">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[#f59e0b] mt-1.5 shrink-0"></span>
+                  <li v-for="(issue, i) in report.emotionAssessment.issues" :key="i" class="text-sm theme-text-soft flex items-start gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[var(--app-warning)] mt-1.5 shrink-0"></span>
                     {{ issue }}
                   </li>
                 </ul>
@@ -306,7 +306,7 @@
 
         <!-- 底部返回 -->
         <div class="flex justify-center pt-4 pb-8">
-          <button @click="router.push({ name: 'interview' })" class="px-8 py-3 bg-[#1f1e1d] border border-[#faf9f5]/10 rounded-xl text-sm font-medium hover:bg-[#2b2a27] transition-colors">
+          <button @click="router.push({ name: 'interview' })" class="report-btn-secondary px-8 py-3 rounded-xl text-sm font-medium transition-colors">
             返回面试
           </button>
         </div>
@@ -329,11 +329,13 @@ import {
   mockInterviewReport,
   mockInterviewSessionSummary
 } from '../mocks/interviewReportMock'
+import { useTheme } from '../composables/useTheme'
 
 echarts.use([RadarChart, TitleComponent, TooltipComponent, RadarComponent, CanvasRenderer])
 
 const route = useRoute()
 const router = useRouter()
+const { resolvedTheme } = useTheme()
 
 const loading = ref(true)
 const loadingText = ref('正在加载评估报告...')
@@ -386,6 +388,19 @@ interface Report {
 
 const report = ref<Report | null>(null)
 
+type ApiResult<T> = { code: number; msg?: string; data?: T }
+
+type EvaluationStatus = 'READY' | 'GENERATING' | 'FAILED' | 'INSUFFICIENT_DATA' | 'NOT_STARTED'
+
+type EvaluationData = {
+  positionName?: string
+  startTime?: string
+  endTime?: string
+  status: EvaluationStatus
+  report?: Report
+  message?: string
+}
+
 const expandedQuestions = ref<Set<number>>(new Set())
 const expandedAnswers = ref<Set<number>>(new Set())
 
@@ -428,6 +443,16 @@ const scoreColor = computed(() => {
   return '#ef4444'
 })
 
+const ringTrackColor = ref('rgba(0,0,0,0.12)')
+
+function updateRingTrackColor() {
+  if (typeof window === 'undefined') return
+  const rootStyle = getComputedStyle(document.documentElement)
+  const borderStrong = rootStyle.getPropertyValue('--app-border-strong').trim()
+  // borderStrong 可能是 rgba(...)，直接用即可；为空时给个保底
+  ringTrackColor.value = borderStrong || (resolvedTheme.value === 'dark' ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.14)')
+}
+
 const scoreCircle = computed(() => {
   const s = report.value?.overallScore ?? 0
   const circumference = 2 * Math.PI * 42
@@ -456,11 +481,13 @@ const topicBarGradient = (score: number) => {
   return 'linear-gradient(90deg, #ef4444, #f97316)'
 }
 
-const abilityScoreColor = (score100: number) => {
-  if (score100 >= 80) return '#6ef17d'
-  if (score100 >= 60) return '#facc15'
-  if (score100 >= 40) return '#fb923c'
-  return '#f87171'
+const abilityScoreColor = (scoreRaw: number) => {
+  // 兼容后端返回 0-100 与 0-10 两种分值语义
+  const score100 = scoreRaw <= 10 ? scoreRaw * 10 : scoreRaw
+  const normalized = Math.max(0, Math.min(100, score100)) / 100
+  // HSL Hue: 0(红) -> 60(黄) -> 120(绿)
+  const hue = Math.round(normalized * 120)
+  return `hsl(${hue} 78% 55%)`
 }
 
 const buildAbilityComment = (label: string, score100: number) => {
@@ -505,6 +532,12 @@ const initRadarChart = () => {
   if (chartInstance) chartInstance.dispose()
   chartInstance = echarts.init(radarChartRef.value)
 
+  const rootStyle = typeof window !== 'undefined' ? getComputedStyle(document.documentElement) : null
+  const axisNameColor = rootStyle?.getPropertyValue('--app-text-muted').trim() || '#9ca3af'
+  const splitLineColor = rootStyle?.getPropertyValue('--app-border').trim() || 'rgba(250,249,245,0.08)'
+  const axisLineColor = rootStyle?.getPropertyValue('--app-border-strong').trim() || 'rgba(250,249,245,0.1)'
+  const accent = rootStyle?.getPropertyValue('--app-accent').trim() || '#6ef17d'
+
   const scores = report.value.abilityScores
   chartInstance.setOption({
     radar: {
@@ -520,10 +553,10 @@ const initRadarChart = () => {
       ],
       shape: 'polygon',
       splitNumber: 4,
-      axisName: { color: '#9ca3af', fontSize: 13 },
-      splitLine: { lineStyle: { color: 'rgba(250,249,245,0.08)' } },
+      axisName: { color: axisNameColor, fontSize: 13 },
+      splitLine: { lineStyle: { color: splitLineColor } },
       splitArea: { areaStyle: { color: ['rgba(110,241,125,0.02)', 'rgba(110,241,125,0.04)', 'rgba(110,241,125,0.02)', 'rgba(110,241,125,0.04)'] } },
-      axisLine: { lineStyle: { color: 'rgba(250,249,245,0.1)' } }
+      axisLine: { lineStyle: { color: axisLineColor } }
     },
     series: [{
       type: 'radar',
@@ -537,8 +570,8 @@ const initRadarChart = () => {
           scores.technicalDepth
         ],
         areaStyle: { color: 'rgba(110,241,125,0.15)' },
-        lineStyle: { color: '#6ef17d', width: 2 },
-        itemStyle: { color: '#6ef17d' },
+        lineStyle: { color: accent, width: 2 },
+        itemStyle: { color: accent },
         symbol: 'circle',
         symbolSize: 7
       }]
@@ -575,7 +608,7 @@ const fetchEvaluation = async () => {
   }
 
   try {
-    const res = await request.get(`/api/interview/sessions/${sessionId}/evaluation`) as any
+    const res = (await request.get(`/api/interview/sessions/${sessionId}/evaluation`)) as ApiResult<EvaluationData>
     if (res.code !== 200) {
       failed.value = true
       failedMessage.value = res.msg || '获取报告失败'
@@ -584,6 +617,12 @@ const fetchEvaluation = async () => {
     }
 
     const data = res.data
+    if (!data) {
+      failed.value = true
+      failedMessage.value = '获取报告失败'
+      loading.value = false
+      return
+    }
     positionName.value = data.positionName || '未知岗位'
     startTime.value = data.startTime || ''
     endTime.value = data.endTime || ''
@@ -622,9 +661,9 @@ const fetchEvaluation = async () => {
       loading.value = false
       return
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     failed.value = true
-    failedMessage.value = err?.message || '获取评估报告失败'
+    failedMessage.value = err instanceof Error ? err.message : '获取评估报告失败'
     loading.value = false
   }
 }
@@ -639,11 +678,11 @@ const fetchSessionDetail = async () => {
   }
 
   try {
-    const res = await request.get(`/api/interview/sessions/${sessionId}`) as any
+    const res = (await request.get(`/api/interview/sessions/${sessionId}`)) as ApiResult<{ currentTurnIndex?: number }>
     if (res.code === 200 && res.data) {
       turnCount.value = res.data.currentTurnIndex || 0
     }
-  } catch (_) {
+  } catch {
     // non-critical
   }
 }
@@ -654,9 +693,19 @@ watch(() => report.value?.abilityScores, () => {
   }
 })
 
+watch(
+  () => resolvedTheme.value,
+  () => {
+    // 主题变化时重绘图表，确保 axis/网格颜色更新
+    updateRingTrackColor()
+    nextTick(initRadarChart)
+  }
+)
+
 onMounted(() => {
   fetchEvaluation()
   fetchSessionDetail()
+  updateRingTrackColor()
   window.addEventListener('resize', handleResize)
 })
 
@@ -671,22 +720,23 @@ onUnmounted(() => {
 .section-title {
   font-size: 1.125rem;
   font-weight: 700;
-  color: #faf9f5;
+  color: var(--app-text);
   margin-bottom: 0.75rem;
   padding-left: 0.75rem;
-  border-left: 3px solid #6ef17d;
+  border-left: 3px solid var(--app-accent);
 }
 
 .card {
-  background-color: #1f1e1d;
+  background-color: var(--app-surface);
   border-radius: 1rem;
-  border: 1px solid rgba(250, 249, 245, 0.06);
+  border: 1px solid var(--app-border);
+  box-shadow: var(--app-shadow);
 }
 
 .qa-label {
   font-size: 0.75rem;
   font-weight: 600;
-  color: rgba(250, 249, 245, 0.5);
+  color: color-mix(in srgb, var(--app-text-muted) 82%, transparent);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.375rem;
@@ -694,7 +744,57 @@ onUnmounted(() => {
 
 .qa-text {
   font-size: 0.875rem;
-  color: rgba(250, 249, 245, 0.8);
+  color: var(--app-text-soft);
   line-height: 1.6;
+}
+
+.report-spinner {
+  border-color: color-mix(in srgb, var(--app-accent) 30%, transparent);
+  border-top-color: var(--app-accent);
+}
+
+.report-btn-secondary {
+  background: var(--app-surface-strong);
+  border: 1px solid var(--app-border-strong);
+  color: var(--app-text);
+}
+
+.report-btn-secondary:hover {
+  filter: brightness(1.04);
+}
+
+.report-ability-item {
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-border);
+}
+
+.report-progress-track {
+  background: color-mix(in srgb, var(--app-border-strong) 70%, transparent);
+}
+
+.report-q-toggle:hover {
+  background: color-mix(in srgb, var(--app-border) 55%, transparent);
+}
+
+.report-q-body,
+.report-q-foot {
+  border-color: var(--app-border);
+}
+
+.report-q-index {
+  background: var(--app-accent-soft);
+  color: var(--app-accent);
+}
+
+.report-q-answer {
+  background: var(--app-surface-soft);
+}
+
+.report-link {
+  color: var(--app-accent);
+}
+
+.report-link:hover {
+  color: var(--app-accent-strong);
 }
 </style>

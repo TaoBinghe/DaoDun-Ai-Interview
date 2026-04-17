@@ -1,43 +1,19 @@
 <template>
-  <div class="flex flex-col items-center min-h-[calc(100vh-64px)] text-gray-400 relative pb-24 pt-8">
-    <!-- 顶部岗位切换 -->
-    <div class="mb-12 flex justify-center w-full">
-      <div
-        v-if="positions.length"
-        class="relative flex p-1 bg-[#1f1e1d] rounded-xl border border-[#faf9f5]/5"
-      >
-        <!-- 滑动背景 -->
-        <div
-          class="absolute inset-y-1 transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] bg-[#2b2a27] rounded-lg shadow-sm"
-          :style="activeTabStyle"
-        ></div>
-
-        <button
-          v-for="(p, index) in positions"
-          :key="p.id"
-          :ref="el => setTabRef(el, index)"
-          type="button"
-          @click="handlePositionChange(p.id)"
-          :class="[
-            'relative z-10 px-6 py-2 text-sm font-medium transition-colors duration-200 cursor-pointer outline-none whitespace-nowrap',
-            positionId == p.id ? 'text-[#faf9f5]' : 'text-gray-400 hover:text-[#faf9f5]/80'
-          ]"
-        >
-          {{ p.name }}
-        </button>
-      </div>
+  <div class="theme-page flex min-h-[calc(100vh-64px)] flex-col items-center relative pb-24 pt-8 theme-text-muted">
+    <div v-if="positionName" class="mb-8 text-center theme-text-muted text-sm">
+      当前岗位：<span class="theme-title font-medium">{{ positionName }}</span>
     </div>
 
     <div class="flex-1 flex flex-col items-center justify-center w-full max-w-6xl px-4">
       <!-- 面试核心区域：大框 -->
-      <div v-if="positionId" class="w-full flex flex-col gap-8 mb-8">
+      <div v-if="positionIdStr" class="w-full flex flex-col gap-8 mb-8">
         <!-- 语音面试模式 -->
         <template v-if="interviewMode === 'voice'">
           <!-- 上半部分：左右两块画面 -->
           <div class="w-full grid grid-cols-1 md:grid-cols-2 gap-8">
             <!-- 左侧：AI 面试官形象 -->
-            <div class="aspect-16/10 bg-[#1f1e1d] rounded-2xl border border-[#faf9f5]/10 flex flex-col items-center justify-center relative overflow-hidden group">
-              <div class="w-32 h-32 rounded-full bg-[#2b2a27] flex items-center justify-center mb-4 transition-transform duration-500 group-hover:scale-110">
+            <div class="interview-panel aspect-16/10 rounded-2xl border flex flex-col items-center justify-center relative overflow-hidden group">
+              <div class="interview-avatar w-32 h-32 rounded-full flex items-center justify-center mb-4 transition-transform duration-500 group-hover:scale-110">
                 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#6ef17d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 8V4H8" />
                   <rect width="16" height="12" x="4" y="8" rx="2" />
@@ -47,16 +23,16 @@
                   <path d="M9 13v2" />
                 </svg>
               </div>
-              <span class="text-[#faf9f5]/60 text-sm font-medium">AI 面试官</span>
+              <span class="text-sm font-medium theme-text-faint">AI 面试官</span>
               <!-- 声波动画装饰 -->
               <div class="absolute bottom-4 flex gap-1 items-end h-8">
-                <div v-for="i in 5" :key="i" class="w-1 bg-[#6ef17d]/40 rounded-full animate-pulse" :style="{ height: [40, 70, 50, 90, 60][i-1] + '%' }"></div>
+                <div v-for="i in 5" :key="i" class="w-1 rounded-full animate-pulse bg-[color:color-mix(in_srgb,var(--app-accent)_40%,transparent)]" :style="{ height: [40, 70, 50, 90, 60][i-1] + '%' }"></div>
               </div>
             </div>
 
             <!-- 右侧：视频画面 -->
             <div class="flex flex-col gap-4">
-              <div class="aspect-16/10 bg-[#1f1e1d] rounded-2xl border border-[#faf9f5]/10 relative overflow-hidden">
+              <div class="interview-panel aspect-16/10 rounded-2xl border relative overflow-hidden">
                 <video
                   ref="videoRef"
                   autoplay
@@ -65,18 +41,18 @@
                   class="w-full h-full object-cover mirror"
                 ></video>
                 <!-- 无画面时的提示 -->
-                <div v-if="!hasVideo" class="absolute inset-0 flex flex-col items-center justify-center text-gray-500 bg-[#1f1e1d]">
+                <div v-if="!hasVideo" class="interview-video-placeholder absolute inset-0 flex flex-col items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-2">
                     <path d="M23 7l-7 5 7 5V7z" />
                     <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                   </svg>
-                  <span class="text-xs">正在连接摄像头...</span>
+                  <span class="text-xs theme-text-faint">正在连接摄像头...</span>
                 </div>
                 <!-- 情绪识别角标：叠加在视频左下角 -->
                 <transition name="fade">
                   <div
                     v-if="sessionId && currentEmotion && currentEmotion.hasFace"
-                    class="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-sm text-xs font-medium text-white select-none"
+                  class="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-sm text-xs font-medium text-white select-none"
                   >
                     <span>{{ emotionEmoji }}</span>
                     <span>{{ emotionLabel }}</span>
@@ -93,9 +69,9 @@
               <transition name="fade">
                 <div
                   v-if="aiSubtitles"
-                  class="w-full rounded-xl border border-[#faf9f5]/10 bg-[#141413]/70 backdrop-blur px-4 py-3"
+                  class="interview-subtitles w-full rounded-xl border backdrop-blur px-4 py-3"
                 >
-                  <p class="text-sm md:text-base text-[#faf9f5] leading-relaxed font-medium">
+                  <p class="text-sm md:text-base theme-title leading-relaxed font-medium">
                     {{ aiSubtitles }}
                   </p>
                 </div>
@@ -108,7 +84,7 @@
                 v-if="!sessionId"
                 @click="startInterview"
                 :disabled="isLoading"
-                class="w-full md:w-auto md:min-w-[140px] py-4 px-6 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 font-bold text-[#141413] bg-[#faf9f5] hover:bg-white active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                class="interview-start-btn w-full md:w-auto md:min-w-[140px] py-4 px-6 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 font-bold active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {{ isLoading ? '正在准备...' : '开始面试' }}
               </button>
@@ -118,7 +94,7 @@
                   @click="toggleVoice"
                   :class="[
                     'py-4 px-6 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 font-bold text-black active:scale-[0.98] md:w-56',
-                    isSpeaking ? 'bg-[#5edb6b]' : 'bg-[#6ef17d] hover:bg-[#5edb6b]'
+                    isSpeaking ? 'interview-accent-btn is-speaking' : 'interview-accent-btn'
                   ]"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -131,7 +107,7 @@
                 <button
                   @click="endInterview"
                   :disabled="isCompleting"
-                  class="py-4 px-6 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 font-bold text-[#faf9f5] bg-[#1f1e1d] border border-[#faf9f5]/20 hover:bg-[#2b2a27] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed md:min-w-[140px]"
+                  class="interview-secondary-btn py-4 px-6 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 font-bold active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed md:min-w-[140px]"
                 >
                   结束面试
                 </button>
@@ -155,7 +131,7 @@
                 type="button"
                 @click="startInterview"
                 :disabled="isLoading"
-                class="w-full sm:w-auto sm:min-w-[160px] py-4 px-8 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 font-bold text-[#141413] bg-[#faf9f5] hover:bg-white active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                class="interview-start-btn w-full sm:w-auto sm:min-w-[160px] py-4 px-8 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 font-bold active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {{ isLoading ? '正在准备...' : '开始面试' }}
               </button>
@@ -164,7 +140,7 @@
                 type="button"
                 @click="endInterview"
                 :disabled="isCompleting"
-                class="w-full sm:w-auto sm:min-w-[160px] py-4 px-8 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 font-bold text-[#faf9f5] bg-[#1f1e1d] border border-[#faf9f5]/20 hover:bg-[#2b2a27] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                class="interview-secondary-btn w-full sm:w-auto sm:min-w-[160px] py-4 px-8 rounded-xl flex items-center justify-center gap-3 transition-all duration-200 font-bold active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 结束面试
               </button>
@@ -176,16 +152,16 @@
         <template v-if="interviewMode === 'coding'">
           <!-- flex + min-h-0：标题栏与编辑器分区高度，避免 h-full 与标题栏叠加导致底部按钮被裁切 -->
           <div
-            class="w-full max-w-6xl mx-auto flex flex-col h-[min(680px,calc(100vh-10rem))] min-h-[480px] rounded-3xl overflow-hidden border border-[#faf9f5]/10 shadow-2xl bg-[#141413] relative"
+            class="w-full max-w-6xl mx-auto flex flex-col h-[min(680px,calc(100vh-10rem))] min-h-[480px] rounded-3xl overflow-hidden shadow-2xl bg-[color:var(--app-surface)] relative"
           >
             <!-- macOS 风格窗口标题栏 -->
-            <div class="h-11 shrink-0 bg-[#1f1e1d] flex items-center px-4 border-b border-[#faf9f5]/10">
+            <div class="interview-code-titlebar h-11 shrink-0 flex items-center px-4 border-b">
               <div class="flex gap-2">
                 <div class="w-3 h-3 rounded-full bg-[#ff5f57]"></div>
                 <div class="w-3 h-3 rounded-full bg-[#ffbc2e]"></div>
                 <div class="w-3 h-3 rounded-full bg-[#28c840]"></div>
               </div>
-              <div class="flex-1 text-center text-xs text-gray-400 font-medium">算法题 - 代码编写</div>
+              <div class="flex-1 text-center text-xs theme-text-muted font-medium">算法题 - 代码编写</div>
             </div>
 
             <div class="flex-1 min-h-0 overflow-hidden">
@@ -202,12 +178,12 @@
       </div>
 
       <div v-if="!positionId" class="flex flex-col items-center">
-        <h1 class="text-3xl font-medium text-[#faf9f5] mb-4">AI 面试</h1>
+        <h1 class="theme-title text-3xl font-medium mb-4">AI 面试</h1>
         <p>请从上方选择一个岗位开始面试。</p>
       </div>
 
       <!-- 错误提示 -->
-      <div v-if="error" class="mt-8 text-center text-red-500">
+      <div v-if="error" class="mt-8 text-center text-[var(--app-danger)]">
         {{ error }}
       </div>
     </div>
@@ -239,8 +215,29 @@ const lastInterviewMode = ref<'voice' | 'text'>('voice')
 
 // 岗位相关
 const positionId = computed(() => route.query.positionId)
+const positionIdStr = computed(() => {
+  const v = positionId.value
+  if (typeof v === 'string') return v
+  if (Array.isArray(v)) return v[0] ?? ''
+  return ''
+})
+const positionIdNum = computed(() => {
+  const n = Number(positionIdStr.value)
+  return Number.isFinite(n) ? n : 0
+})
 const positionName = ref('')
-const positions = ref<any[]>([])
+interface PositionItem {
+  id: number
+  name: string
+}
+
+type ApiResult<T> = { code: number; msg?: string; data?: T }
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null
+}
+
+const positions = ref<PositionItem[]>([])
 const tabRefs = ref<HTMLElement[]>([])
 const activeTabStyle = ref({
   left: '0px',
@@ -351,15 +348,13 @@ const stopEmotionCapture = () => {
   currentEmotion.value = null
 }
 
-const setTabRef = (el: any, index: number) => {
-  if (el) {
-    tabRefs.value[index] = el as HTMLElement
-  }
+const setTabRef = (el: unknown, index: number) => {
+  if (el instanceof HTMLElement) tabRefs.value[index] = el
 }
 
 const updateActiveTabStyle = () => {
   nextTick(() => {
-    const activeIndex = positions.value.findIndex(p => p.id == positionId.value)
+    const activeIndex = positions.value.findIndex((p) => String(p.id) === positionIdStr.value)
     if (activeIndex !== -1 && tabRefs.value[activeIndex]) {
       const el = tabRefs.value[activeIndex]
       activeTabStyle.value = {
@@ -379,15 +374,13 @@ const updateActiveTabStyle = () => {
 
 const fetchPositions = async () => {
   try {
-    const res = await request.get('/api/position/list') as any
+    const res = (await request.get('/api/position/list')) as ApiResult<PositionItem[]>
     if (res.code === 200) {
-      positions.value = res.data || []
+      positions.value = res.data ?? []
       // 默认进入面试页时：若未指定岗位，则默认选择 Java 岗位
-      if (!route.query.positionId && positions.value.length) {
+      if (!positionIdStr.value && positions.value.length) {
         const java = positions.value.find(
-          (item: any) =>
-            typeof item?.name === 'string' &&
-            (item.name.toLowerCase().includes('java') || item.name.includes('Java') || item.name.includes('后端'))
+          (item) => item.name.toLowerCase().includes('java') || item.name.includes('Java') || item.name.includes('后端')
         )
         const fallback = positions.value[0]
         const target = java ?? fallback
@@ -396,7 +389,7 @@ const fetchPositions = async () => {
         }
       }
 
-      const p = positions.value.find((item: any) => item.id == route.query.positionId)
+      const p = positions.value.find((item) => String(item.id) === positionIdStr.value)
       positionName.value = p?.name ?? ''
       updateActiveTabStyle()
     }
@@ -427,12 +420,12 @@ const handlePositionChange = async (id: number) => {
 }
 
 const startInterview = async () => {
-  if (!positionId.value) return
+  if (!positionIdStr.value) return
   await createSession()
 }
 
 const createSession = async () => {
-  if (!positionId.value) return
+  if (!positionIdStr.value) return
   
   isLoading.value = true
   error.value = ''
@@ -441,9 +434,9 @@ const createSession = async () => {
   codingDockNotify.value = false
 
   try {
-    const res = await request.post('/api/interview/sessions', {
-      positionId: Number(positionId.value)
-    }) as any
+    const res = (await request.post('/api/interview/sessions', {
+      positionId: positionIdNum.value
+    })) as ApiResult<{ sessionId?: number }>
     
     if (res.code === 200 && res.data?.sessionId) {
       sessionId.value = res.data.sessionId
@@ -460,12 +453,12 @@ const createSession = async () => {
         await client.connect(onVoiceMessage)
         client.sendPlayWelcome(sessionId.value!, interviewMode.value === 'text')
         startEmotionCapture()
-      } catch (wsErr: any) {
+      } catch (wsErr: unknown) {
         console.warn('WebSocket 开场白失败，改用 HTTP + 浏览器朗读:', wsErr)
         voiceClient.value = null
-        const welcomeRes = await request.get(`/api/interview/welcome/${sessionId.value}`) as any
+        const welcomeRes = (await request.get(`/api/interview/welcome/${sessionId.value}`)) as ApiResult<{ content?: string }>
         if (welcomeRes.code === 200) {
-          const welcomeText = welcomeRes.data?.content || '你好，很高兴能面试你。请先做一个简单的自我介绍吧。'
+          const welcomeText = welcomeRes.data?.content ?? '你好，很高兴能面试你。请先做一个简单的自我介绍吧。'
           if (interviewMode.value === 'voice') {
             aiSubtitles.value = welcomeText
             nextTick(() => speakTextFallback(welcomeText))
@@ -481,20 +474,22 @@ const createSession = async () => {
     } else {
       error.value = res.msg || '创建会话失败'
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Error creating session:', err)
-    error.value = err?.message || '创建会话失败，请重试'
+    error.value = err instanceof Error ? err.message : '创建会话失败，请重试'
     // HTTP 401 由 request 拦截器统一 forceRelogin，此处不再重复跳转
   } finally {
     isLoading.value = false
   }
 }
 
-const onVoiceMessage = (msg: any) => {
+const onVoiceMessage = (msg: unknown) => {
+  if (!isRecord(msg)) return
   // 算法题干可与字幕分开发送：先处理 codingProblemContent
   if (msg.type === 'subtitle') {
-    if (typeof msg.codingProblemContent === 'string' && msg.codingProblemContent.trim()) {
-      currentAlgorithmQuestion.value = msg.codingProblemContent.trim()
+    const coding = msg.codingProblemContent
+    if (typeof coding === 'string' && coding.trim()) {
+      currentAlgorithmQuestion.value = coding.trim()
       if (interviewMode.value !== 'coding') {
         codingDockNotify.value = true
       }
@@ -502,7 +497,7 @@ const onVoiceMessage = (msg: any) => {
   }
 
   // 语音模式下的字幕处理
-  if (msg.type === 'subtitle' && msg.content) {
+  if (msg.type === 'subtitle' && typeof msg.content === 'string' && msg.content) {
     if (interviewMode.value === 'voice') {
       aiSubtitles.value = msg.content
     } else if (interviewMode.value === 'text') {
@@ -519,14 +514,15 @@ const onVoiceMessage = (msg: any) => {
   }
   
   // 文字面试不播放面试官语音（也不触发浏览器朗读兜底）
-  if (interviewMode.value === 'voice' && msg.type === 'interviewer_audio' && msg.data) {
-    playBase64Audio(msg.data, msg.mimeType || 'audio/mpeg').catch((e) => {
+  if (interviewMode.value === 'voice' && msg.type === 'interviewer_audio' && typeof msg.data === 'string' && msg.data) {
+    const mime = typeof msg.mimeType === 'string' && msg.mimeType ? msg.mimeType : 'audio/mpeg'
+    playBase64Audio(msg.data, mime).catch((e) => {
       console.warn('播放面试官音频失败，改用浏览器朗读:', e)
       if (aiSubtitles.value) speakTextFallback(aiSubtitles.value)
     })
   }
   
-  if (msg.type === 'error' && msg.content) {
+  if (msg.type === 'error' && typeof msg.content === 'string' && msg.content) {
     ElMessage.warning(msg.content)
     if (interviewMode.value === 'text') {
       isTextWaiting.value = false
@@ -534,19 +530,20 @@ const onVoiceMessage = (msg: any) => {
   }
 
   if (msg.type === 'emotion_status') {
-    const mappedEmotion = mapRawEmotionToInterviewEmotion(msg.emotion)
+    const rawEmotion = typeof msg.emotion === 'string' ? msg.emotion : ''
+    const mappedEmotion = mapRawEmotionToInterviewEmotion(rawEmotion)
     const prev = currentEmotion.value?.emotion
     currentEmotion.value = {
       emotion: mappedEmotion,
-      rawEmotion: msg.emotion ?? '',
-      confidence: msg.confidence ?? 0,
-      hasFace: msg.hasFace ?? false
+      rawEmotion,
+      confidence: typeof msg.confidence === 'number' ? msg.confidence : 0,
+      hasFace: typeof msg.hasFace === 'boolean' ? msg.hasFace : false
     }
-    if (msg.hasFace && mappedEmotion && mappedEmotion !== prev) {
+    if (currentEmotion.value.hasFace && mappedEmotion && mappedEmotion !== prev) {
       emotionTimeline.value.push({
         timestamp: Date.now() - sessionStartTime.value,
         emotion: mappedEmotion,
-        confidence: msg.confidence ?? 0
+        confidence: currentEmotion.value.confidence
       })
     }
   }
@@ -595,10 +592,10 @@ const toggleVoice = async () => {
       })
     })
     isSpeaking.value = true
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error('启动录音失败:', e)
     pcmRecorder.value = null
-    ElMessage.warning(e?.message || '无法访问麦克风，请检查权限')
+    ElMessage.warning(e instanceof Error ? e.message : '无法访问麦克风，请检查权限')
   }
 }
 
@@ -627,8 +624,8 @@ const endInterview = async () => {
     codingDockNotify.value = false
     emotionTimeline.value = []
     router.push({ name: 'interview-report', params: { sessionId: String(completedSessionId) } })
-  } catch (err: any) {
-    error.value = err?.message || '结束面试失败，请重试'
+  } catch (err: unknown) {
+    error.value = err instanceof Error ? err.message : '结束面试失败，请重试'
     ElMessage.error(error.value)
   } finally {
     isCompleting.value = false
@@ -658,10 +655,10 @@ const handleTextSend = async (content: string) => {
       return
     }
 
-    const res = await request.post(`/api/interview/sessions/${sessionId.value}/turns`, {
+    const res = (await request.post(`/api/interview/sessions/${sessionId.value}/turns`, {
       content: content.trim(),
       clientTurnId
-    }) as any
+    })) as ApiResult<{ interviewerTurn?: { content?: string; codingProblemContent?: string } }>
 
     if (res.code === 200 && res.data?.interviewerTurn) {
       const it = res.data.interviewerTurn
@@ -678,7 +675,7 @@ const handleTextSend = async (content: string) => {
       })
     }
     isTextWaiting.value = false
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('发送文字答案失败:', err)
     ElMessage.error('发送失败，请重试')
     textMessages.value.pop()
@@ -687,9 +684,9 @@ const handleTextSend = async (content: string) => {
 }
 
 watch(
-  () => route.query.positionId,
+  () => positionIdStr.value,
   () => {
-    const p = positions.value.find((item: any) => item.id == route.query.positionId)
+    const p = positions.value.find((item) => String(item.id) === positionIdStr.value)
     positionName.value = p?.name ?? ''
     updateActiveTabStyle()
   }
@@ -714,19 +711,20 @@ onUnmounted(() => {
   stopVideo()
 })
 
-const dockActiveRing = '!border-[#6ef17d] ring-2 ring-[#6ef17d]/35'
+const dockActiveRing = 'dock-active-ring ring-2 ring-[color:color-mix(in_srgb,var(--app-accent)_35%,transparent)]'
 
 const exitCodingMode = () => {
   interviewMode.value = lastInterviewMode.value
 }
 
-const handleCodeSubmit = (code: string) => {
+const handleCodeSubmit = (_code: string) => {
   if (!sessionId.value) return
 
   ElMessage.success('代码已提交，正在评估中...')
   
   // TODO: 后续可通过 WebSocket 或 API 发送代码给后端进行评测
   // 暂时仅显示提示，不添加到文字对话框中
+  void _code
 }
 
 const dockItems = computed(() => [
@@ -793,5 +791,76 @@ const dockItems = computed(() => [
 .fade-leave-to {
   opacity: 0;
   transform: translateY(10px);
+}
+</style>
+
+<style scoped>
+.interview-tabs {
+  background: var(--app-surface);
+  border-color: var(--app-border);
+}
+
+.interview-tab-indicator {
+  background: var(--app-surface-strong);
+}
+
+.interview-panel {
+  background: var(--app-surface);
+  border-color: var(--app-border);
+}
+
+.interview-avatar {
+  background: var(--app-surface-strong);
+}
+
+.interview-video-placeholder {
+  color: var(--app-text-faint);
+  background: var(--app-surface);
+}
+
+.interview-subtitles {
+  background: color-mix(in srgb, var(--app-bg) 70%, transparent);
+  border-color: var(--app-border);
+}
+
+.interview-start-btn {
+  background: var(--app-primary);
+  color: var(--app-primary-contrast);
+}
+
+.interview-start-btn:hover:not(:disabled) {
+  background: var(--app-primary-hover);
+}
+
+.interview-accent-btn {
+  background: var(--app-accent);
+  color: var(--app-accent-contrast);
+}
+
+.interview-accent-btn:hover:not(:disabled) {
+  background: var(--app-accent-strong);
+}
+
+.interview-accent-btn.is-speaking {
+  background: var(--app-accent-strong);
+}
+
+.interview-secondary-btn {
+  background: var(--app-surface-strong);
+  color: var(--app-text);
+  border: 1px solid var(--app-border-strong);
+}
+
+.interview-secondary-btn:hover:not(:disabled) {
+  filter: brightness(1.04);
+}
+
+.interview-code-titlebar {
+  background: var(--app-surface);
+  border-color: var(--app-border);
+}
+
+.dock-active-ring {
+  border-color: var(--app-accent) !important;
 }
 </style>

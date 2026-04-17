@@ -1,24 +1,24 @@
 <template>
-  <div class="min-h-[calc(100vh-64px)] bg-[#141413] px-4 py-8 text-[#f5f5f5]">
+  <div class="theme-page min-h-[calc(100vh-64px)] px-4 py-8">
     <div class="mx-auto max-w-4xl">
       <header class="mb-6">
-        <h1 class="text-2xl font-semibold tracking-tight text-[#faf9f5]">讨论区</h1>
+        <h1 class="theme-title text-2xl font-semibold tracking-tight">讨论区</h1>
       </header>
 
       <div
-        class="mb-6 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+        class="discussion-search mb-6 flex items-center gap-3 rounded-xl px-3 py-2"
       >
         <Search class="h-4 w-4 text-gray-400" :stroke-width="2" />
         <input
           v-model="searchQuery"
           type="text"
-          class="flex-1 bg-transparent text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none"
+          class="flex-1 bg-transparent text-sm theme-title placeholder:theme-text-faint focus:outline-none"
           placeholder="搜索标题或标签..."
           @keydown.esc="searchQuery = ''"
         />
       </div>
 
-      <ul class="divide-y divide-white/5">
+      <ul class="discussion-list divide-y">
         <li
           v-for="post in filteredPosts"
           :key="post.id"
@@ -34,16 +34,16 @@
               popper-class="discussion-author-popover"
             >
               <template #reference>
-                  <img
-                    :src="post.author.avatar"
-                    :alt="post.author.username"
+                <img
+                  :src="post.author.avatar"
+                  :alt="post.author.username"
                   class="h-10 w-10 cursor-default rounded-full object-cover ring-1 ring-white/10"
                   width="40"
                   height="40"
                 />
               </template>
-              <div class="text-[13px] text-white">
-                <div class="flex gap-3 border-b border-white/10 pb-3">
+              <div class="text-[13px] theme-title">
+                <div class="discussion-popover-section flex gap-3 border-b pb-3">
                   <img
                     :src="post.author.avatar"
                     alt=""
@@ -53,43 +53,43 @@
                   />
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-1">
-                      <span class="truncate font-medium text-white">{{ post.author.username }}</span>
+                      <span class="truncate font-medium theme-title">{{ post.author.username }}</span>
                       <BadgeCheck
                         v-if="post.author.verified"
                         class="h-4 w-4 shrink-0 text-sky-400"
                         :stroke-width="2"
                         aria-hidden="true"
                       />
-                    <p class="ml-auto text-xs text-white text-right">IP：{{ post.author.ipLocation }}</p>
+                      <p class="ml-auto text-xs theme-title text-right">IP：{{ post.author.ipLocation }}</p>
                     </div>
-                    <p class="mt-0.5 text-xs text-white">{{ post.author.rank }}</p>
+                    <p class="mt-0.5 text-xs theme-title">{{ post.author.rank }}</p>
                     
                   </div>
                 </div>
-                <div class="grid grid-cols-4 gap-2 border-b border-white/10 py-3 text-center">
+                <div class="discussion-popover-section grid grid-cols-4 gap-2 border-b py-3 text-center">
                   <div>
-                    <p class="text-[10px] text-gray-300">被阅读</p>
-                    <p class="font-bold text-white">{{ formatCount(post.author.readCount) }}</p>
+                    <p class="text-[10px] theme-text-muted">被阅读</p>
+                    <p class="font-bold theme-title">{{ formatCount(post.author.readCount) }}</p>
                   </div>
                   <div>
-                    <p class="text-[10px] text-gray-300">被点赞</p>
-                    <p class="font-bold text-white">{{ formatCount(post.author.receivedLikes) }}</p>
+                    <p class="text-[10px] theme-text-muted">被点赞</p>
+                    <p class="font-bold theme-title">{{ formatCount(post.author.receivedLikes) }}</p>
                   </div>
                   <div>
-                    <p class="text-[10px] text-gray-300">被收藏</p>
-                    <p class="font-bold text-white">{{ formatCount(post.author.favorites) }}</p>
+                    <p class="text-[10px] theme-text-muted">被收藏</p>
+                    <p class="font-bold theme-title">{{ formatCount(post.author.favorites) }}</p>
                   </div>
                   <div>
-                    <p class="text-[10px] text-gray-300">关注者</p>
-                    <p class="font-bold text-white">{{ formatCount(post.author.followers) }}</p>
+                    <p class="text-[10px] theme-text-muted">关注者</p>
+                    <p class="font-bold theme-title">{{ formatCount(post.author.followers) }}</p>
                   </div>
                 </div>
                 <el-button
                   class="mt-3 w-full !rounded-lg"
                   :class="
                     post.author.isFollowing
-                      ? '!border-zinc-600 !bg-zinc-600 !text-gray-100'
-                      : '!border-emerald-600 !bg-emerald-600 !text-white'
+                      ? 'discussion-following'
+                      : 'discussion-follow'
                   "
                   @click.stop="toggleFollow(post.id)"
                 >
@@ -101,14 +101,14 @@
 
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
-              <span class="text-gray-100">{{ post.author.username }}</span>
+              <span class="theme-title">{{ post.author.username }}</span>
               <span class="text-white/20">·</span>
               <span class="text-gray-400">{{ post.createdAt }}</span>
             </div>
-            <h2 class="mb-1 mt-1 text-lg font-bold text-gray-100">
+            <h2 class="mb-1 mt-1 text-lg font-bold theme-title">
               {{ post.title }}
             </h2>
-            <p class="line-clamp-2 text-sm leading-relaxed text-gray-400">
+            <p class="line-clamp-2 text-sm leading-relaxed theme-text-muted">
               {{ getPreview(post.content) }}
             </p>
 
@@ -118,21 +118,21 @@
                 :key="tag"
                 size="small"
                 effect="dark"
-                class="!border-white/10 !bg-zinc-700/80 !text-gray-300"
+                class="discussion-tag"
                 @click.stop
               >
                 {{ tag }}
               </el-tag>
             </div>
 
-            <div class="mt-3 flex flex-wrap items-center gap-4 text-sm text-gray-500">
+            <div class="mt-3 flex flex-wrap items-center gap-4 text-sm theme-text-faint">
               <button
                 type="button"
                 class="inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 transition-colors"
                 :class="
                   post.isLiked
-                    ? 'text-emerald-400 hover:text-emerald-300'
-                    : 'text-gray-500 hover:text-gray-300'
+                    ? 'discussion-liked'
+                    : 'discussion-action'
                 "
                 @click.stop="handleLike(post.id)"
               >
@@ -141,13 +141,13 @@
               </button>
               <button
                 type="button"
-                class="inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 transition-colors hover:text-gray-300"
+                class="discussion-action inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 transition-colors"
                 @click.stop="handleComment(post.id)"
               >
                 <MessageCircle class="h-4 w-4 shrink-0" :stroke-width="2" />
                 <span>{{ post.stats.comments }}</span>
               </button>
-              <span class="inline-flex items-center gap-1.5 text-gray-500">
+              <span class="inline-flex items-center gap-1.5 theme-text-faint">
                 <Eye class="h-4 w-4 shrink-0" :stroke-width="2" />
                 <span>{{ post.stats.views }}</span>
               </span>
@@ -275,11 +275,58 @@ function openPostDetail(post: ForumPost) {
 
 <style scoped>
 :deep(.discussion-author-popover) {
-  --el-bg-color-overlay: #2a2b2a;
-  --el-border-color-light: #ffffff14;
-  background: #2a2b2a !important;
-  border: 1px solid #ffffff14 !important;
-  color: #fff;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45) !important;
+  --el-bg-color-overlay: var(--app-surface);
+  --el-border-color-light: var(--app-border);
+  background: var(--app-surface) !important;
+  border: 1px solid var(--app-border) !important;
+  color: var(--app-text);
+  box-shadow: var(--app-shadow) !important;
+}
+
+.discussion-search {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+}
+
+.discussion-list {
+  border-color: var(--app-border);
+}
+
+.discussion-popover-section {
+  border-color: var(--app-border);
+}
+
+.discussion-tag {
+  border-color: var(--app-border) !important;
+  background: var(--app-surface-strong) !important;
+  color: var(--app-text-muted) !important;
+}
+
+.discussion-follow {
+  background: var(--app-accent) !important;
+  border-color: transparent !important;
+  color: var(--app-accent-contrast) !important;
+}
+
+.discussion-following {
+  background: var(--app-surface-strong) !important;
+  border-color: var(--app-border-strong) !important;
+  color: var(--app-text-soft) !important;
+}
+
+.discussion-action {
+  color: var(--app-text-faint);
+}
+
+.discussion-action:hover {
+  color: var(--app-text);
+}
+
+.discussion-liked {
+  color: var(--app-success);
+}
+
+.discussion-liked:hover {
+  color: color-mix(in srgb, var(--app-success) 84%, white);
 }
 </style>

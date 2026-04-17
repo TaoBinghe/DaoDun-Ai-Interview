@@ -1,14 +1,14 @@
 <template>
-  <div class="flex flex-col items-center justify-center min-h-screen bg-[#141413] px-4 selection:bg-white/20">
+  <div class="theme-page flex min-h-screen flex-col items-center justify-center px-4">
     <router-link
       to="/"
-      class="mb-10 flex items-center gap-2.5 text-[#f5f5f5] no-underline transition-opacity hover:opacity-80"
+      class="mb-10 flex items-center gap-2.5 text-[var(--app-text)] no-underline transition-opacity hover:opacity-80"
     >
       <img :src="brandLogo" alt="智面未来" class="h-9 w-auto shrink-0 rounded-lg object-contain" width="120" height="36" />
       <span class="text-xl font-medium tracking-tight">智面未来</span>
     </router-link>
 
-    <div class="w-full max-w-md bg-[#141413] border border-white/5 rounded-4xl p-8 md:p-12 relative z-10">
+    <div class="login-shell relative z-10 w-full max-w-md rounded-4xl p-8 md:p-12">
 
       <!-- ========== 登录 ========== -->
       <template v-if="activeTab === 'login'">
@@ -16,14 +16,14 @@
         <div class="flex gap-4 mb-6">
           <button
             type="button"
-            :class="['flex-1 py-2 rounded-lg text-sm font-medium transition-colors', loginMode === 'password' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300']"
+            :class="['login-mode-btn flex-1 py-2 rounded-lg text-sm font-medium transition-colors', loginMode === 'password' ? 'is-active' : '']"
             @click="loginMode = 'password'; resetLoginForm()"
           >
             账号密码
           </button>
           <button
             type="button"
-            :class="['flex-1 py-2 rounded-lg text-sm font-medium transition-colors', loginMode === 'email' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300']"
+            :class="['login-mode-btn flex-1 py-2 rounded-lg text-sm font-medium transition-colors', loginMode === 'email' ? 'is-active' : '']"
             @click="loginMode = 'email'; resetLoginForm()"
           >
             邮箱验证码
@@ -53,8 +53,8 @@
                 autocomplete="current-password"
               />
             </div>
-            <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
-              <input v-model="rememberMe" type="checkbox" class="rounded border-white/20 bg-[#1e1e1e] text-white focus:ring-white/20" />
+            <label class="flex cursor-pointer items-center gap-2 text-sm theme-text-muted">
+              <input v-model="rememberMe" type="checkbox" class="login-checkbox rounded" />
               记住我
             </label>
             <button
@@ -88,7 +88,7 @@
               </button>
             </template>
             <template v-else>
-              <p class="text-sm text-gray-400">验证码已发送至 <span class="text-white">{{ loginEmail }}</span></p>
+              <p class="text-sm theme-text-muted">验证码已发送至 <span class="theme-title">{{ loginEmail }}</span></p>
             <div class="grid grid-cols-6 gap-2">
               <input
                 v-for="(_, i) in 6"
@@ -98,14 +98,14 @@
                 type="text"
                 inputmode="numeric"
                 maxlength="1"
-                class="w-full aspect-square bg-[#1e1e1e] border border-white/10 rounded-xl text-center text-lg font-bold text-white outline-none focus:border-white/30 p-0 transition-colors focus:border-white/50"
+                class="code-input w-full aspect-square rounded-xl p-0 text-center text-lg font-bold outline-none transition-colors"
                 @input="onCodeInput(loginCodeArray, $event, i)"
                 @keydown.backspace="onCodeBackspace(loginCodeArray, $event, i)"
               />
             </div>
               <button
                 type="button"
-                class="text-sm text-gray-500 hover:text-white"
+                class="login-link text-sm"
                 @click="loginEmailStep = 1; resetCodeArray(loginCodeArray)"
               >
                 更换邮箱
@@ -123,9 +123,9 @@
           </div>
         </Transition>
 
-        <div class="mt-6 text-center text-sm text-gray-500">
+        <div class="mt-6 text-center text-sm theme-text-faint">
           没有账号？
-          <button type="button" class="text-gray-300 hover:text-white underline underline-offset-4" @click="activeTab = 'register'; resetForm()">
+          <button type="button" class="login-link underline underline-offset-4" @click="activeTab = 'register'; resetForm()">
             立即注册
           </button>
         </div>
@@ -179,7 +179,7 @@
                   :class="registerPasswordStrength.level >= 2 ? `strength-on strength-${registerPasswordStrength.label}` : ''"
                 ></div>
               </div>
-              <span class="text-xs text-gray-400">强度：{{ registerPasswordStrength.label }}</span>
+              <span class="text-xs theme-text-muted">强度：{{ registerPasswordStrength.label }}</span>
             </div>
           </div>
           <div>
@@ -195,13 +195,13 @@
             />
             <p
               v-if="registerPassword && registerConfirmPassword && !isRegisterPasswordMatch"
-              class="text-xs text-red-500 mt-1"
+              class="mt-1 text-xs text-[var(--app-danger)]"
             >
               两次输入的密码不一致
             </p>
             <p
               v-else-if="registerPassword && registerConfirmPassword && isRegisterPasswordMatch"
-              class="text-xs text-emerald-400/80 mt-1"
+              class="mt-1 text-xs text-[var(--app-success)]"
             >
               两次密码一致
             </p>
@@ -218,7 +218,7 @@
 
         <!-- Step 2: 输入验证码 -->
         <form v-else class="space-y-4" @submit.prevent="handleRegister">
-          <p class="text-sm text-gray-400">验证码已发送至 <span class="text-white">{{ registerEmail }}</span></p>
+          <p class="text-sm theme-text-muted">验证码已发送至 <span class="theme-title">{{ registerEmail }}</span></p>
           <div class="grid grid-cols-6 gap-2">
             <input
               v-for="(_, i) in 6"
@@ -228,14 +228,14 @@
               type="text"
               inputmode="numeric"
               maxlength="1"
-              class="w-full aspect-square bg-[#1e1e1e] border border-white/10 rounded-xl text-center text-lg font-bold text-white outline-none focus:border-white/30 p-0 transition-colors focus:border-white/50"
+              class="code-input w-full aspect-square rounded-xl p-0 text-center text-lg font-bold outline-none transition-colors"
               @input="onCodeInput(registerCodeArray, $event, i)"
               @keydown.backspace="onCodeBackspace(registerCodeArray, $event, i)"
             />
           </div>
           <button
             type="button"
-            class="text-sm text-gray-500 hover:text-white"
+            class="login-link text-sm"
             @click="registerStep = 1; resetCodeArray(registerCodeArray)"
           >
             返回编辑
@@ -249,17 +249,17 @@
             注册
           </button>
         </form>
-        <div class="mt-6 text-center text-sm text-gray-500">
+        <div class="mt-6 text-center text-sm theme-text-faint">
           已有账号？
-          <button type="button" class="text-gray-300 hover:text-white underline underline-offset-4" @click="activeTab = 'login'; resetForm()">
+          <button type="button" class="login-link underline underline-offset-4" @click="activeTab = 'login'; resetForm()">
             返回登录
           </button>
         </div>
       </template>
 
-      <p class="text-[10px] text-gray-500 text-center leading-relaxed mt-8">
+      <p class="mt-8 text-center text-[10px] leading-relaxed theme-text-faint">
         继续即表示同意 AI Interview 的
-        <a href="#" class="underline hover:text-gray-400">隐私政策</a>。
+        <a href="#" class="login-link underline">隐私政策</a>。
       </p>
     </div>
   </div>
@@ -534,44 +534,65 @@ function saveAuthAndRedirect(data: { accessToken: string; refreshToken: string; 
 
 <style scoped>
 .input-dark {
-  background-color: #1e1e1e;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: var(--app-surface-soft);
+  border: 1px solid var(--app-border);
   border-radius: 0.75rem;
   padding: 0.75rem 1rem;
-  color: #f5f5f5;
+  color: var(--app-text);
   outline: none;
   transition: border-color 0.2s;
 }
 .input-dark::placeholder {
-  color: #6b7280;
+  color: var(--app-text-faint);
 }
 .input-dark:focus {
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: color-mix(in srgb, var(--app-accent) 45%, transparent);
 }
 
 .input-dark:-webkit-autofill,
 .input-dark:-webkit-autofill:hover,
 .input-dark:-webkit-autofill:focus,
 .input-dark:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0 1000px #1e1e1e inset !important;
-  -webkit-text-fill-color: #f5f5f5 !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--app-surface-soft) inset !important;
+  -webkit-text-fill-color: var(--app-text) !important;
   transition: background-color 5000s ease-in-out 0s;
 }
 
+.login-shell {
+  background: var(--app-bg);
+  border: 1px solid var(--app-border);
+  box-shadow: var(--app-shadow);
+}
+
+.login-mode-btn {
+  color: var(--app-text-faint);
+}
+
+.login-mode-btn:hover {
+  color: var(--app-text-muted);
+}
+
+.login-mode-btn.is-active {
+  background: var(--app-surface-strong);
+  color: var(--app-text);
+}
+
 .btn-primary {
-  background-color: #f5f5f5;
-  color: #000;
+  background-color: var(--app-primary);
+  color: var(--app-primary-contrast);
   font-weight: 600;
   border-radius: 0.75rem;
   border: none;
   transition: opacity 0.2s;
 }
 .btn-primary:hover:not(:disabled) {
-  background-color: #fff;
+  background-color: var(--app-primary-hover);
   opacity: 0.95;
 }
 .btn-primary:disabled {
-  opacity: 0.5;
+  opacity: 1;
+  background-color: var(--app-primary);
+  color: var(--app-primary-contrast);
   cursor: not-allowed;
 }
 
@@ -585,7 +606,7 @@ function saveAuthAndRedirect(data: { accessToken: string; refreshToken: string; 
   flex: 1;
   height: 0.35rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--app-border);
 }
 
 .strength-on.strength-弱 {
@@ -596,6 +617,36 @@ function saveAuthAndRedirect(data: { accessToken: string; refreshToken: string; 
 }
 .strength-on.strength-强 {
   background: rgba(16, 185, 129, 0.55);
+}
+
+.code-input {
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-border);
+  color: var(--app-text);
+}
+
+.code-input:focus {
+  border-color: color-mix(in srgb, var(--app-accent) 45%, transparent);
+}
+
+.login-link {
+  color: var(--app-text-muted);
+  transition: color 0.2s ease;
+}
+
+.login-link:hover {
+  color: var(--app-text);
+}
+
+.login-checkbox {
+  border: 1px solid var(--app-border-strong);
+  background: var(--app-surface-soft);
+  color: var(--app-primary);
+}
+
+.login-checkbox:focus {
+  outline: 2px solid color-mix(in srgb, var(--app-accent) 35%, transparent);
+  outline-offset: 1px;
 }
 
 .login-mode-enter-active,
