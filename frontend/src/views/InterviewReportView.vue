@@ -127,6 +127,32 @@
           </div>
         </section>
 
+        <!-- 内容分析（置于综合能力分析之后；扩展字段，样例或接口返回时展示） -->
+        <section class="mb-8" v-if="report.contentAnalysis">
+          <h2 class="section-title">内容分析</h2>
+          <p class="text-sm theme-text-muted mb-4 pl-1 leading-relaxed">
+            基于大模型对作答要点做结构化解析。表达与临场情绪见「情绪与表达状态评估」。
+          </p>
+          <div class="card p-6">
+            <p class="text-xs theme-text-muted mb-4 leading-relaxed">{{ report.contentAnalysis.methodNote }}</p>
+            <p class="text-sm theme-text-soft leading-relaxed mb-6">{{ report.contentAnalysis.summary }}</p>
+            <div class="space-y-4">
+              <div v-for="row in contentDimensionRows" :key="row.key">
+                <div class="flex items-center justify-between mb-1.5 gap-3">
+                  <span class="text-sm font-medium theme-title">{{ row.label }}</span>
+                  <span class="text-sm font-bold shrink-0" :style="{ color: topicScoreColor(row.score10) }">{{ row.score100 }}/100</span>
+                </div>
+                <div class="report-progress-track w-full h-2 rounded-full overflow-hidden">
+                  <div
+                    class="h-full rounded-full transition-all duration-700"
+                    :style="{ width: row.score100 + '%', background: topicBarGradient(row.score10) }"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- D. 技术技能评分 -->
         <section class="mb-8" v-if="report.knowledgeAssessment?.topicDetails?.length">
           <h2 class="section-title">技术技能评分</h2>
@@ -179,7 +205,7 @@
                   <h4 class="qa-label">追问内容</h4>
                   <ul class="space-y-1.5">
                     <li v-for="(f, fi) in q.followUpContents" :key="fi" class="qa-text flex items-start gap-2">
-                      <span class="text-[#6ef17d] shrink-0">{{ fi + 1 }}.</span>
+                      <span class="text-[color:var(--app-accent)] shrink-0">{{ fi + 1 }}.</span>
                       {{ f }}
                     </li>
                   </ul>
@@ -249,7 +275,7 @@
           <div class="card p-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div v-if="report.recommendations.learning?.length">
-                <h3 class="text-sm font-semibold text-[#6ef17d] mb-3 flex items-center gap-2">
+                <h3 class="text-sm font-semibold text-[color:var(--app-accent)] mb-3 flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
                   学习提升方向
                 </h3>
@@ -276,29 +302,52 @@
           </div>
         </section>
 
-        <!-- G. 情绪评估 -->
-        <section class="mb-8" v-if="report.emotionAssessment">
-          <h2 class="section-title">情绪状态评估</h2>
-          <div class="card p-6">
-            <p class="text-sm theme-text-soft leading-relaxed mb-4">{{ report.emotionAssessment.summary }}</p>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div v-if="report.emotionAssessment.positives?.length">
-                <h3 class="text-xs font-semibold text-[#6ef17d] mb-2">积极表现</h3>
-                <ul class="space-y-1.5">
-                  <li v-for="(p, i) in report.emotionAssessment.positives" :key="i" class="text-sm theme-text-soft flex items-start gap-2">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[var(--app-accent)] mt-1.5 shrink-0"></span>
-                    {{ p }}
-                  </li>
-                </ul>
+        <!-- G. 情绪与表达（表达评估并入本区） -->
+        <section class="mb-8" v-if="hasEmotionOrExpressionSection">
+          <h2 class="section-title">情绪与表达状态评估</h2>
+          <div class="card p-6 space-y-8">
+            <div v-if="report.expressionAnalysis">
+              <h3 class="text-base font-bold theme-title mb-4">表达侧评估</h3>
+              <p class="text-xs theme-text-muted mb-4 leading-relaxed">{{ report.expressionAnalysis.methodNote }}</p>
+              <p class="text-sm theme-text-soft leading-relaxed mb-6">{{ report.expressionAnalysis.summary }}</p>
+              <div class="space-y-4">
+                <div v-for="row in expressionDimensionRows" :key="row.key">
+                  <div class="flex items-center justify-between mb-1.5 gap-3">
+                    <span class="text-sm font-medium theme-title">{{ row.label }}</span>
+                    <span class="text-sm font-bold shrink-0" :style="{ color: topicScoreColor(row.score10) }">{{ row.score100 }}/100</span>
+                  </div>
+                  <div class="report-progress-track w-full h-2 rounded-full overflow-hidden">
+                    <div
+                      class="h-full rounded-full transition-all duration-700"
+                      :style="{ width: row.score100 + '%', background: topicBarGradient(row.score10) }"
+                    />
+                  </div>
+                </div>
               </div>
-              <div v-if="report.emotionAssessment.issues?.length">
-                <h3 class="text-xs font-semibold text-[#f59e0b] mb-2">需关注</h3>
-                <ul class="space-y-1.5">
-                  <li v-for="(issue, i) in report.emotionAssessment.issues" :key="i" class="text-sm theme-text-soft flex items-start gap-2">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[var(--app-warning)] mt-1.5 shrink-0"></span>
-                    {{ issue }}
-                  </li>
-                </ul>
+            </div>
+
+            <div v-if="report.emotionAssessment" :class="{ 'border-t border-[var(--app-border)] pt-8': report.expressionAnalysis }">
+              <h3 v-if="report.expressionAnalysis" class="text-base font-bold theme-title mb-4">情绪状态</h3>
+              <p class="text-sm theme-text-soft leading-relaxed mb-4">{{ report.emotionAssessment.summary }}</p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div v-if="report.emotionAssessment.positives?.length">
+                  <h3 class="text-xs font-semibold text-[color:var(--app-accent)] mb-2">积极表现</h3>
+                  <ul class="space-y-1.5">
+                    <li v-for="(p, i) in report.emotionAssessment.positives" :key="i" class="text-sm theme-text-soft flex items-start gap-2">
+                      <span class="w-1.5 h-1.5 rounded-full bg-[var(--app-accent)] mt-1.5 shrink-0"></span>
+                      {{ p }}
+                    </li>
+                  </ul>
+                </div>
+                <div v-if="report.emotionAssessment.issues?.length">
+                  <h3 class="text-xs font-semibold text-[#f59e0b] mb-2">需关注</h3>
+                  <ul class="space-y-1.5">
+                    <li v-for="(issue, i) in report.emotionAssessment.issues" :key="i" class="text-sm theme-text-soft flex items-start gap-2">
+                      <span class="w-1.5 h-1.5 rounded-full bg-[var(--app-warning)] mt-1.5 shrink-0"></span>
+                      {{ issue }}
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>
@@ -384,6 +433,25 @@ interface Report {
     learning: string[]
     emotional: string[]
   } | null
+  /** 扩展：文档「内容分析」模块（仅样例或接口返回时存在） */
+  contentAnalysis?: {
+    methodNote: string
+    summary: string
+    dimensions: {
+      technicalCorrectness: number
+      knowledgeDepth: number
+      logicalRigor: number
+      jobMatch: number
+    }
+  }
+  /** 扩展：文档「表达分析」模块 */
+  expressionAnalysis?: {
+    methodNote: string
+    summary: string
+    speechRate: number
+    clarity: number
+    confidence: number
+  }
 }
 
 const report = ref<Report | null>(null)
@@ -436,8 +504,8 @@ const formattedDate = computed(() => {
 
 const scoreColor = computed(() => {
   const s = report.value?.overallScore ?? 0
-  if (s >= 90) return '#6ef17d'
-  if (s >= 70) return '#6ef17d'
+  if (s >= 90) return 'var(--app-accent)'
+  if (s >= 70) return 'var(--app-accent)'
   if (s >= 50) return '#f59e0b'
   if (s >= 30) return '#f97316'
   return '#ef4444'
@@ -469,25 +537,29 @@ const ratingLevelFallback = computed(() => {
   return '不合格'
 })
 
+/** 0–10 档颜色（知识点评分 / 百分制折算） */
 const topicScoreColor = (score: number) => {
-  if (score >= 8) return '#6ef17d'
+  if (score >= 8) return 'var(--app-accent)'
   if (score >= 5) return '#f59e0b'
   return '#ef4444'
 }
 
+/** 百分制 → 0–10 档，复用条形配色 */
+const toScore10From100 = (n: number) => Math.max(0, Math.min(10, Math.round(n / 10)))
+
 const topicBarGradient = (score: number) => {
-  if (score >= 8) return 'linear-gradient(90deg, #6ef17d, #5edb6b)'
+  if (score >= 8) return 'linear-gradient(90deg, var(--app-accent), var(--app-accent-strong))'
   if (score >= 5) return 'linear-gradient(90deg, #f59e0b, #eab308)'
   return 'linear-gradient(90deg, #ef4444, #f97316)'
 }
 
 const abilityScoreColor = (scoreRaw: number) => {
-  // 兼容后端返回 0-100 与 0-10 两种分值语义
+  // 兼容后端返回 0-100 与 0-10 两种分值语义；档位与考点分一致，高分使用主题绿
   const score100 = scoreRaw <= 10 ? scoreRaw * 10 : scoreRaw
-  const normalized = Math.max(0, Math.min(100, score100)) / 100
-  // HSL Hue: 0(红) -> 60(黄) -> 120(绿)
-  const hue = Math.round(normalized * 120)
-  return `hsl(${hue} 78% 55%)`
+  const clamped = Math.max(0, Math.min(100, score100))
+  if (clamped >= 80) return 'var(--app-accent)'
+  if (clamped >= 50) return '#f59e0b'
+  return '#ef4444'
 }
 
 const buildAbilityComment = (label: string, score100: number) => {
@@ -504,6 +576,31 @@ const buildAbilityComment = (label: string, score100: number) => {
   return `${label}明显不足，当前在该维度还难以支撑高质量面试表现。`
 }
 
+const hasEmotionOrExpressionSection = computed(
+  () => !!(report.value?.emotionAssessment || report.value?.expressionAnalysis)
+)
+
+const contentDimensionRows = computed(() => {
+  const c = report.value?.contentAnalysis?.dimensions
+  if (!c) return [] as { key: string; label: string; score100: number; score10: number }[]
+  return [
+    { key: 'technicalCorrectness', label: '技术正确性', score100: c.technicalCorrectness, score10: toScore10From100(c.technicalCorrectness) },
+    { key: 'knowledgeDepth', label: '知识深度', score100: c.knowledgeDepth, score10: toScore10From100(c.knowledgeDepth) },
+    { key: 'logicalRigor', label: '逻辑严谨性', score100: c.logicalRigor, score10: toScore10From100(c.logicalRigor) },
+    { key: 'jobMatch', label: '与岗位匹配度', score100: c.jobMatch, score10: toScore10From100(c.jobMatch) }
+  ]
+})
+
+const expressionDimensionRows = computed(() => {
+  const e = report.value?.expressionAnalysis
+  if (!e) return [] as { key: string; label: string; score100: number; score10: number }[]
+  return [
+    { key: 'speechRate', label: '语速', score100: e.speechRate, score10: toScore10From100(e.speechRate) },
+    { key: 'clarity', label: '清晰度', score100: e.clarity, score10: toScore10From100(e.clarity) },
+    { key: 'confidence', label: '自信度', score100: e.confidence, score10: toScore10From100(e.confidence) }
+  ]
+})
+
 const abilityAnalysisItems = computed(() => {
   const scores = report.value?.abilityScores
   if (!scores) return []
@@ -512,13 +609,13 @@ const abilityAnalysisItems = computed(() => {
     { key: 'adaptability', label: '应变能力', rawScore: scores.adaptability },
     { key: 'responseSpeed', label: '应答能力', rawScore: scores.responseSpeed },
     { key: 'logicAbility', label: '逻辑能力', rawScore: scores.logicAbility },
-    { key: 'professionalKnowledge', label: '岗位契合度', rawScore: scores.professionalKnowledge },
+    { key: 'professionalKnowledge', label: '专业知识', rawScore: scores.professionalKnowledge },
     { key: 'technicalDepth', label: '技术深度', rawScore: scores.technicalDepth }
   ]
 
   return items.map((item) => ({
     ...item,
-    displayScore: Math.max(1, Math.round(item.rawScore / 10)),
+    displayScore: Math.max(1, Math.min(10, Math.round(item.rawScore / 10))),
     comment: buildAbilityComment(item.label, item.rawScore)
   }))
 })
@@ -536,7 +633,8 @@ const initRadarChart = () => {
   const axisNameColor = rootStyle?.getPropertyValue('--app-text-muted').trim() || '#9ca3af'
   const splitLineColor = rootStyle?.getPropertyValue('--app-border').trim() || 'rgba(250,249,245,0.08)'
   const axisLineColor = rootStyle?.getPropertyValue('--app-border-strong').trim() || 'rgba(250,249,245,0.1)'
-  const accent = rootStyle?.getPropertyValue('--app-accent').trim() || '#6ef17d'
+  const accent = rootStyle?.getPropertyValue('--app-accent').trim() || '#22c55e'
+  const accentFillRgb = resolvedTheme.value === 'dark' ? '110, 241, 125' : '34, 197, 94'
 
   const scores = report.value.abilityScores
   chartInstance.setOption({
@@ -555,7 +653,16 @@ const initRadarChart = () => {
       splitNumber: 4,
       axisName: { color: axisNameColor, fontSize: 13 },
       splitLine: { lineStyle: { color: splitLineColor } },
-      splitArea: { areaStyle: { color: ['rgba(110,241,125,0.02)', 'rgba(110,241,125,0.04)', 'rgba(110,241,125,0.02)', 'rgba(110,241,125,0.04)'] } },
+      splitArea: {
+        areaStyle: {
+          color: [
+            `rgba(${accentFillRgb},0.02)`,
+            `rgba(${accentFillRgb},0.04)`,
+            `rgba(${accentFillRgb},0.02)`,
+            `rgba(${accentFillRgb},0.04)`
+          ]
+        }
+      },
       axisLine: { lineStyle: { color: axisLineColor } }
     },
     series: [{
@@ -569,7 +676,7 @@ const initRadarChart = () => {
           scores.professionalKnowledge,
           scores.technicalDepth
         ],
-        areaStyle: { color: 'rgba(110,241,125,0.15)' },
+        areaStyle: { color: `rgba(${accentFillRgb},0.15)` },
         lineStyle: { color: accent, width: 2 },
         itemStyle: { color: accent },
         symbol: 'circle',
@@ -754,13 +861,15 @@ onUnmounted(() => {
 }
 
 .report-btn-secondary {
-  background: var(--app-surface-strong);
-  border: 1px solid var(--app-border-strong);
-  color: var(--app-text);
+  background: #111111;
+  border: 1px solid #111111;
+  color: #ffffff;
 }
 
 .report-btn-secondary:hover {
-  filter: brightness(1.04);
+  background: #1f1f1f;
+  border-color: #1f1f1f;
+  color: #ffffff;
 }
 
 .report-ability-item {
@@ -797,4 +906,5 @@ onUnmounted(() => {
 .report-link:hover {
   color: var(--app-accent-strong);
 }
+
 </style>

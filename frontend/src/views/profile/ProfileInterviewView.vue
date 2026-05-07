@@ -79,6 +79,19 @@
     </el-card>
 
     <el-card shadow="never" class="theme-el-card !rounded-2xl">
+      <div class="mb-4">
+        <h2 class="theme-title text-xl font-semibold">能力成长曲线</h2>
+        <p class="mt-1 text-xs theme-text-muted">
+          维度与评估报告一致：综合得分与表达能力、应变能力、应答能力、逻辑能力、专业知识、技术深度（0–100）。下图为示例走势（约三周、按天递增、分数稳步上升），便于展示界面效果。
+        </p>
+      </div>
+
+      <div class="min-h-[320px] w-full min-w-0">
+        <div ref="growthChartRef" class="h-[340px] w-full min-w-0" />
+      </div>
+    </el-card>
+
+    <el-card shadow="never" class="theme-el-card !rounded-2xl">
       <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="theme-title text-xl font-semibold">面试活跃度</h2>
@@ -208,13 +221,23 @@
 .heat-4 {
   background: color-mix(in srgb, var(--app-accent) 82%, var(--app-surface-strong));
 }
+
 </style>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import * as echarts from 'echarts/core'
+import { LineChart } from 'echarts/charts'
+import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
 import request from '../../utils/request'
 import { mockInterviewSessionSummary } from '../../mocks/interviewReportMock'
+import { PROFILE_GROWTH_DEMO_POINTS } from '../../mocks/profileGrowthDemo'
+import { EVALUATION_ABILITY_DIMENSIONS } from '../../constants/evaluationAbilityDimensions'
+import { useTheme } from '../../composables/useTheme'
+
+echarts.use([LineChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer])
 
 type RangeType = 'all' | '30d' | '7d'
 
@@ -236,10 +259,16 @@ interface HeatmapCell {
 }
 
 const router = useRouter()
+const { resolvedTheme } = useTheme()
 
 const sessions = ref<SessionSummary[]>([])
 const sessionsLoading = ref(false)
 const sessionsError = ref('')
+
+const growthChartRef = ref<HTMLDivElement | null>(null)
+let growthChartInstance: echarts.ECharts | null = null
+
+const growthChartPoints = PROFILE_GROWTH_DEMO_POINTS
 
 const interviewRange = ref<RangeType>('all')
 const rangeOptions = [
@@ -363,6 +392,89 @@ function goReport(sessionId: number) {
   router.push({ name: 'interview-report', params: { sessionId: String(sessionId) } })
 }
 
+function formatGrowthAxisDate(iso: string) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10)
+  return `${d.getMonth() + 1}/${d.getDate()}`
+}
+
+function readCssVar(name: string, fallback: string) {
+  if (typeof window === 'undefined') return fallback
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return v || fallback
+}
+
+function initGrowthChart() {
+  if (!growthChartRef.value || growthChartPoints.length < 2) {
+    growthChartInstance?.dispose()
+    growthChartInstance = null
+    return
+  }
+
+  const points = growthChartPoints
+  const categories = points.map((p) => formatGrowthAxisDate(p.startedAt))
+  const textMuted = readCssVar('--app-text-muted', '#9ca3af')
+  const border = readCssVar('--app-border', '#e5e7eb')
+  const splitLine = readCssVar('--app-border-strong', 'rgba(0,0,0,0.08)')
+
+  const legendSelected: Record<string, boolean> = {}
+  for (const d of EVALUATION_ABILITY_DIMENSIONS) {
+    legendSelected[d.label] = d.defaultSelected
+  }
+
+  const series = EVALUATION_ABILITY_DIMENSIONS.map((dim) => ({
+    name: dim.label,
+    type: 'line' as const,
+    smooth: true,
+    smoothMonotone: 'x' as const,
+    symbolSize: 6,
+    emphasis: { focus: 'series' as const },
+    data: points.map((p) => {
+      const raw = dim.key === 'overallScore' ? p.overallScore : p.abilityScores[dim.key]
+      return typeof raw === 'number' && Number.isFinite(raw) ? raw : null
+    }),
+    lineStyle: { width: 2, color: dim.color },
+    itemStyle: { color: dim.color }
+  }))
+
+  if (growthChartInstance) {
+    growthChartInstance.dispose()
+  }
+  growthChartInstance = echarts.init(growthChartRef.value)
+  growthChartInstance.setOption({
+    color: EVALUATION_ABILITY_DIMENSIONS.map((d) => d.color),
+    tooltip: {
+      trigger: 'axis',
+      confine: true,
+      textStyle: { fontSize: 12 }
+    },
+    legend: {
+      type: 'scroll',
+      bottom: 0,
+      data: EVALUATION_ABILITY_DIMENSIONS.map((d) => d.label),
+      selected: legendSelected,
+      textStyle: { color: textMuted, fontSize: 11 }
+    },
+    grid: { left: 48, right: 16, top: 24, bottom: 72 },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: categories,
+      axisLine: { lineStyle: { color: border } },
+      axisLabel: { color: textMuted, fontSize: 11, rotate: categories.length > 8 ? 28 : 0 }
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      max: 100,
+      splitLine: { lineStyle: { color: splitLine } },
+      axisLabel: { color: textMuted, fontSize: 11 }
+    },
+    series
+  })
+  growthChartInstance.resize()
+}
+
 async function loadSessions() {
   sessionsLoading.value = true
   sessionsError.value = ''
@@ -380,7 +492,23 @@ async function loadSessions() {
   }
 }
 
+watch(resolvedTheme, () => {
+  nextTick(() => initGrowthChart())
+})
+
+function onGrowthResize() {
+  growthChartInstance?.resize()
+}
+
 onMounted(() => {
   loadSessions()
+  window.addEventListener('resize', onGrowthResize)
+  nextTick(() => initGrowthChart())
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', onGrowthResize)
+  growthChartInstance?.dispose()
+  growthChartInstance = null
 })
 </script>

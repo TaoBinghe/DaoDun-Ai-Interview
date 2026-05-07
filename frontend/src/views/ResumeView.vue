@@ -7,6 +7,18 @@
           支持 PDF 文件，最大 5MB，最多 15 页。
         </p>
 
+        <div class="mt-4">
+          <el-button
+            class="resume-preview-btn !h-9 !rounded-xl !px-4 !font-medium"
+            @click="showParsedPreview = true"
+          >
+            查看结构化预览
+          </el-button>
+          <p class="mt-2 text-xs theme-text-faint">
+            以下为前端演示：模拟简历经解析后的结构化展示，便于对照实际上传后的效果。
+          </p>
+        </div>
+
         <div
           class="resume-dropzone mt-6 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl px-6 py-8 text-center transition-colors"
           @click="triggerFilePick"
@@ -84,6 +96,96 @@
         </div>
       </section>
     </div>
+
+    <el-dialog
+      v-model="showParsedPreview"
+      title="结构化简历预览"
+      class="resume-parsed-dialog"
+      width="min(92vw, 640px)"
+      destroy-on-close
+      append-to-body
+    >
+      <div class="parsed-preview-scroll max-h-[min(72vh,560px)] overflow-y-auto pr-1">
+        <header class="parsed-hero border-b border-[var(--app-border)] pb-4 mb-5">
+          <h3 class="text-xl font-semibold theme-title">{{ parsedMock.name }}</h3>
+          <p class="mt-1 text-sm theme-text-muted">{{ parsedMock.headline }}</p>
+          <ul class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs theme-text-soft">
+            <li>{{ parsedMock.phone }}</li>
+            <li>{{ parsedMock.email }}</li>
+            <li>{{ parsedMock.location }}</li>
+          </ul>
+          <p class="mt-3 text-sm theme-text-soft">
+            <span class="font-medium theme-title">求职意向：</span>{{ parsedMock.intention }}
+          </p>
+        </header>
+
+        <section class="parsed-block mb-5">
+          <h4 class="parsed-block-title">教育经历</h4>
+          <ul class="mt-2 space-y-3">
+            <li
+              v-for="(edu, i) in parsedMock.education"
+              :key="i"
+              class="parsed-item rounded-xl p-3"
+            >
+              <p class="text-sm font-medium theme-title">{{ edu.school }} · {{ edu.degree }} · {{ edu.major }}</p>
+              <p class="mt-1 text-xs theme-text-muted">{{ edu.period }}</p>
+            </li>
+          </ul>
+        </section>
+
+        <section class="parsed-block mb-5">
+          <h4 class="parsed-block-title">工作经历</h4>
+          <ul class="mt-2 space-y-4">
+            <li
+              v-for="(exp, i) in parsedMock.experience"
+              :key="i"
+              class="parsed-item rounded-xl p-3"
+            >
+              <p class="text-sm font-medium theme-title">{{ exp.company }} — {{ exp.title }}</p>
+              <p class="mt-0.5 text-xs theme-text-muted">{{ exp.period }}</p>
+              <ul class="mt-2 list-disc space-y-1 pl-4 text-sm theme-text-soft">
+                <li v-for="(h, hi) in exp.highlights" :key="hi">{{ h }}</li>
+              </ul>
+            </li>
+          </ul>
+        </section>
+
+        <section class="parsed-block mb-5">
+          <h4 class="parsed-block-title">项目经历</h4>
+          <ul class="mt-2 space-y-3">
+            <li
+              v-for="(proj, i) in parsedMock.projects"
+              :key="i"
+              class="parsed-item rounded-xl p-3"
+            >
+              <p class="text-sm font-medium theme-title">{{ proj.name }}</p>
+              <p class="mt-1 text-xs theme-text-muted">{{ proj.stack }}</p>
+              <p class="mt-2 text-sm theme-text-soft leading-relaxed">{{ proj.description }}</p>
+            </li>
+          </ul>
+        </section>
+
+        <section class="parsed-block mb-5">
+          <h4 class="parsed-block-title">技能标签</h4>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <span
+              v-for="(sk, i) in parsedMock.skills"
+              :key="i"
+              class="parsed-skill-tag rounded-lg px-2.5 py-1 text-xs"
+            >
+              {{ sk }}
+            </span>
+          </div>
+        </section>
+
+        <section class="parsed-block">
+          <h4 class="parsed-block-title">自我评价</h4>
+          <p class="mt-2 text-sm theme-text-soft leading-relaxed whitespace-pre-wrap">
+            {{ parsedMock.summary }}
+          </p>
+        </section>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -91,6 +193,7 @@
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { deleteResumeById, fetchMyResumes, type ResumeItem, uploadResume } from '../api/resume'
+import { RESUME_PARSED_PREVIEW_MOCK } from '../mocks/resumeParsedPreviewMock'
 
 const resumes = ref<ResumeItem[]>([])
 const isLoadingList = ref(false)
@@ -98,6 +201,8 @@ const isUploading = ref(false)
 const deletingId = ref<number | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const selectedFileName = ref('')
+const showParsedPreview = ref(false)
+const parsedMock = RESUME_PARSED_PREVIEW_MOCK
 
 const allowedExtensions = ['pdf']
 
@@ -233,5 +338,35 @@ onMounted(() => {
 
 .resume-danger-btn:hover {
   background: var(--app-danger-soft) !important;
+}
+
+.resume-preview-btn {
+  background: var(--app-surface-strong);
+  color: var(--app-text);
+  border: 1px solid var(--app-border-strong);
+}
+
+.resume-preview-btn:hover {
+  border-color: color-mix(in srgb, var(--app-accent) 35%, transparent);
+  color: var(--app-text);
+}
+
+.parsed-block-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--app-text-muted) 88%, transparent);
+}
+
+.parsed-item {
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-border);
+}
+
+.parsed-skill-tag {
+  background: color-mix(in srgb, var(--app-accent) 12%, var(--app-surface-soft));
+  border: 1px solid color-mix(in srgb, var(--app-accent) 22%, transparent);
+  color: var(--app-text-soft);
 }
 </style>

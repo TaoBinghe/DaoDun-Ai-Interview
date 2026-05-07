@@ -15,10 +15,10 @@
   --app-border-strong: rgba(17, 17, 17, 0.14);
   --app-overlay: #f7f8f5;
   --app-shadow: 0 24px 60px rgba(16, 24, 40, 0.08);
-  --app-accent: #91ee8a;
-  --app-accent-strong: #7edc77;
-  --app-accent-soft: rgba(145, 238, 138, 0.2);
-  --app-accent-contrast: #0d0f0d;
+  --app-accent: #22c55e;
+  --app-accent-strong: #16a34a;
+  --app-accent-soft: rgba(34, 197, 94, 0.16);
+  --app-accent-contrast: #ffffff;
   --app-primary: #111111;
   --app-primary-hover: #1e1f1f;
   --app-primary-contrast: #ffffff;

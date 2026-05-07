@@ -5,7 +5,7 @@
         <span class="home-brand">智面未来</span>
         <RotatingText
           :texts="['即时反馈', '简历解析', '能力评估']"
-          mainClassName="ml-4 md:ml-6 px-2 sm:px-2 md:px-3 bg-[#6ef17d] text-black overflow-hidden py-0.5 sm:py-1 md:py-2 justify-center rounded-xl inline-flex align-middle"
+          mainClassName="ml-4 md:ml-6 px-2 sm:px-2 md:px-3 bg-[var(--app-accent)] text-[var(--app-accent-contrast)] overflow-hidden py-0.5 sm:py-1 md:py-2 justify-center rounded-xl inline-flex align-middle"
           :staggerFrom="'last'"
           :initial="{ y: '100%' }"
           :animate="{ y: 0 }"

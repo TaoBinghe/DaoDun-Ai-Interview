@@ -118,7 +118,7 @@
             </button>
             <button
               @click="handleGoBack"
-              class="code-btn-secondary px-4 py-2 rounded-lg text-sm transition-colors"
+              class="code-btn-interview-back px-4 py-2 rounded-lg text-sm transition-colors"
             >
               返回面试
             </button>
@@ -411,6 +411,18 @@ textarea::-webkit-scrollbar-thumb:hover {
 
 .code-btn-secondary:hover {
   filter: brightness(1.04);
+}
+
+.code-btn-interview-back {
+  background: #111111;
+  border: 1px solid #111111;
+  color: #ffffff;
+}
+
+.code-btn-interview-back:hover {
+  background: #1f1f1f;
+  border-color: #1f1f1f;
+  color: #ffffff;
 }
 
 .code-btn-accent {

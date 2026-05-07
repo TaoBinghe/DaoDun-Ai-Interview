@@ -208,7 +208,7 @@
           </div>
           <button
             type="submit"
-            :disabled="loading || !isRegisterStep1Valid"
+            :disabled="loading"
             class="btn-primary w-full py-4"
           >
             <span v-if="loading" class="animate-spin rounded-full h-5 w-5 border-2 border-black border-t-transparent mr-2 inline-block"></span>
@@ -242,7 +242,7 @@
           </button>
           <button
             type="submit"
-            :disabled="loading || registerCodeArray.join('').length < 6"
+            :disabled="loading"
             class="btn-primary w-full py-4"
           >
             <span v-if="loading" class="animate-spin rounded-full h-5 w-5 border-2 border-black border-t-transparent mr-2 inline-block"></span>
@@ -318,28 +318,6 @@ const registerPasswordStrength = computed(() => getPasswordStrength(registerPass
 const isRegisterPasswordMatch = computed(() => {
   if (!registerPassword.value || !registerConfirmPassword.value) return true
   return registerPassword.value === registerConfirmPassword.value
-})
-
-const isRegisterStep1Valid = computed(() => {
-  const username = registerUsername.value.trim()
-  const password = registerPassword.value
-  const strength = registerPasswordStrength.value
-
-  const usernameOk = username.length >= 5 && username.length <= 10
-  const emailOk = isValidEmail(registerEmail.value)
-  // 发送验证码前沿用后端要求的基础校验（5~16 + 大小写 + 数字），并加上确认密码一致
-  const passwordOk =
-    password.length >= 5 &&
-    password.length <= 16 &&
-    /[a-z]/.test(password) &&
-    /[A-Z]/.test(password) &&
-    /\d/.test(password)
-
-  const confirmOk = !!registerConfirmPassword.value && isRegisterPasswordMatch.value
-
-  // strength 只是展示，不作为硬门槛（硬门槛仍是接口文档里的规则）
-  void strength
-  return emailOk && usernameOk && passwordOk && confirmOk
 })
 
 function setCodeRef(el: unknown, i: number) {
