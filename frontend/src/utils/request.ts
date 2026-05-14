@@ -2,8 +2,10 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { forceRelogin } from './authSession'
 
+const BASE_URL = import.meta.env.PROD ? '' : 'http://localhost:8081'
+
 const request = axios.create({
-  baseURL: 'http://localhost:8081',
+  baseURL: BASE_URL,
   timeout: 5000
 })
 
@@ -17,7 +19,7 @@ function doRefresh(): Promise<string> {
   }
   return axios
     .post<{ code: number; msg?: string; data?: { accessToken: string; refreshToken?: string } }>(
-      'http://localhost:8081/api/auth/refresh',
+      `${BASE_URL}/api/auth/refresh`,
       { refreshToken }
     )
     .then((res) => {

@@ -50,7 +50,8 @@ export class VoiceWebSocketClient {
     if (!token) {
       throw new Error('未登录，无法建立语音通道')
     }
-    const url = `ws://localhost:8081/ws/interview?token=${encodeURIComponent(token)}`
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const url = `${protocol}//${location.host}/ws/interview?token=${encodeURIComponent(token)}`
     this.ws = new WebSocket(url)
     this.connectPromise = new Promise((resolve, reject) => {
       let settled = false

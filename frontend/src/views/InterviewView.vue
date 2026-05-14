@@ -500,6 +500,7 @@ const onVoiceMessage = (msg: unknown) => {
   if (msg.type === 'subtitle' && typeof msg.content === 'string' && msg.content) {
     if (interviewMode.value === 'voice') {
       aiSubtitles.value = msg.content
+      isTextWaiting.value = false
     } else if (interviewMode.value === 'text') {
       // 文字模式：以 subtitle 作为面试官回复（isFinal 缺省视为 true）
       if (msg.isFinal !== false) {
@@ -717,14 +718,64 @@ const exitCodingMode = () => {
   interviewMode.value = lastInterviewMode.value
 }
 
-const handleCodeSubmit = (_code: string) => {
-  if (!sessionId.value) return
+const handleCodeSubmit = async (codeContent: string) => {
+  if (!sessionId.value || !codeContent.trim()) return
 
-  ElMessage.success('代码已提交，正在评估中...')
-  
-  // TODO: 后续可通过 WebSocket 或 API 发送代码给后端进行评测
-  // 暂时仅显示提示，不添加到文字对话框中
-  void _code
+  const lang = '' // 可由 CodeEditorView emit 时带上语言，暂不强制
+  const wrapped = lang
+    ? `以下是候选人编写的${lang}代码：\n\`\`\`${lang}\n${codeContent}\n\`\`\``
+    : `以下是候选人编写的代码：\n\`\`\`\n${codeContent}\n\`\`\``
+
+  // 添加到文字消息列表，便于用户返回文字模式后看到自己的提交
+  textMessages.value.push({
+    role: 'user',
+    content: wrapped,
+    timestamp: Date.now()
+  })
+
+  // 退出代码编写模式，回到之前的面试模式
+  exitCodingMode()
+
+  isTextWaiting.value = true
+  const clientTurnId = `code_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
+
+  try {
+    if (voiceClient.value?.isOpen()) {
+      voiceClient.value.sendTextAnswer({
+        sessionId: sessionId.value,
+        content: wrapped,
+        clientTurnId
+      })
+      return
+    }
+
+    // HTTP 兜底
+    const res = (await request.post(`/api/interview/sessions/${sessionId.value}/turns`, {
+      content: wrapped,
+      clientTurnId
+    })) as ApiResult<{ interviewerTurn?: { content?: string; codingProblemContent?: string } }>
+
+    if (res.code === 200 && res.data?.interviewerTurn) {
+      const it = res.data.interviewerTurn
+      if (typeof it.codingProblemContent === 'string' && it.codingProblemContent.trim()) {
+        currentAlgorithmQuestion.value = it.codingProblemContent.trim()
+        if (interviewMode.value !== 'coding') {
+          codingDockNotify.value = true
+        }
+      }
+      textMessages.value.push({
+        role: 'interviewer',
+        content: it.content || '',
+        timestamp: Date.now()
+      })
+    }
+    isTextWaiting.value = false
+  } catch (err: unknown) {
+    console.error('提交代码失败:', err)
+    ElMessage.error('代码提交失败，请重试')
+    textMessages.value.pop()
+    isTextWaiting.value = false
+  }
 }
 
 const dockItems = computed(() => [
