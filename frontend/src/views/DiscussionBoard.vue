@@ -30,7 +30,6 @@
               placement="bottom-start"
               :width="300"
               trigger="hover"
-              effect="dark"
               popper-class="discussion-author-popover"
             >
               <template #reference>
