@@ -74,7 +74,27 @@
               </el-button>
             </router-link>
           </div>
-          <div v-else class="justify-self-end"></div>
+          <el-dropdown v-else trigger="click" popper-class="user-dropdown-popper" placement="bottom-end">
+            <button type="button" class="user-avatar-btn inline-flex items-center justify-center rounded-full w-9 h-9 text-sm font-semibold shrink-0">
+              {{ userInitial }}
+            </button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item @click="goProfile">
+                  <div class="user-dropdown-row">
+                    <span>👤</span>
+                    <span>个人中心</span>
+                  </div>
+                </el-dropdown-item>
+                <el-dropdown-item @click="handleLogout">
+                  <div class="user-dropdown-row">
+                    <span>🚪</span>
+                    <span>退出登录</span>
+                  </div>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </div>
     </nav>
@@ -88,13 +108,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { useTheme, type ThemeMode } from '../composables/useTheme'
+import { logout } from '../utils/authSession'
 import brandLogo from '@resouce/logo.png'
 
 const userStore = useUserStore()
 const route = useRoute()
+const router = useRouter()
 const { themeMode, resolvedTheme, setThemeMode } = useTheme()
 const interviewPositions = [
   { label: '后端开发', value: 'backend' },
@@ -115,6 +137,19 @@ const themeIcon = computed(() => {
   }
   return resolvedTheme.value === 'dark' ? '🌙' : '☀'
 })
+const userInitial = computed(() => {
+  const name = userStore.user?.username || 'U'
+  return name.slice(0, 1).toUpperCase()
+})
+
+function goProfile() {
+  router.push('/profile')
+}
+
+function handleLogout() {
+  userStore.clearUser()
+  logout()
+}
 
 onMounted(() => {
   if (!userStore.user) {
@@ -153,6 +188,7 @@ onMounted(() => {
 
 <style>
 /* 全局样式处理 Teleport 后的下拉菜单 */
+.user-dropdown-popper.el-popper,
 .theme-dropdown-popper.el-popper,
 .dark-dropdown-popper.el-popper {
   background-color: var(--app-surface) !important;
@@ -161,12 +197,14 @@ onMounted(() => {
   box-shadow: var(--app-shadow) !important;
 }
 
+.user-dropdown-popper .el-dropdown-menu,
 .theme-dropdown-popper .el-dropdown-menu,
 .dark-dropdown-popper .el-dropdown-menu {
   background-color: transparent !important;
   padding: 0.25rem !important;
 }
 
+.user-dropdown-popper .el-dropdown-menu__item,
 .theme-dropdown-popper .el-dropdown-menu__item,
 .dark-dropdown-popper .el-dropdown-menu__item {
   color: var(--app-text-muted) !important;
@@ -175,6 +213,7 @@ onMounted(() => {
   font-size: 0.875rem !important;
 }
 
+.user-dropdown-popper .el-dropdown-menu__item:hover,
 .theme-dropdown-popper .el-dropdown-menu__item:hover,
 .dark-dropdown-popper .el-dropdown-menu__item:hover,
 .theme-dropdown-popper .el-dropdown-menu__item.is-selected,
@@ -183,6 +222,7 @@ onMounted(() => {
   color: var(--app-text) !important;
 }
 
+.user-dropdown-popper .el-popper__arrow::before,
 .theme-dropdown-popper .el-popper__arrow::before,
 .dark-dropdown-popper .el-popper__arrow::before {
   background-color: var(--app-surface) !important;
@@ -205,6 +245,27 @@ onMounted(() => {
 }
 
 .theme-option-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.user-avatar-btn {
+  background: var(--app-surface-strong);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.user-avatar-btn:hover {
+  background: var(--app-surface);
+  border-color: var(--app-border-strong);
+}
+
+.user-dropdown-row {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
