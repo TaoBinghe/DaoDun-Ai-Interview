@@ -273,6 +273,34 @@ body {
   --el-menu-active-color: var(--app-text);
 }
 
+.el-dialog {
+  --el-dialog-bg-color: var(--app-surface) !important;
+  --el-dialog-title-font-size: 1rem;
+  --el-dialog-title-font-weight: 600;
+  --el-dialog-border-radius: 1rem;
+}
+
+.el-dialog__header {
+  border-bottom: 1px solid var(--app-border);
+  padding-bottom: 1rem;
+}
+
+.el-dialog__headerbtn .el-dialog__close {
+  color: var(--app-text-muted) !important;
+}
+
+.el-dialog__headerbtn:hover .el-dialog__close {
+  color: var(--app-text) !important;
+}
+
+.el-dialog__title {
+  color: var(--app-text) !important;
+}
+
+.el-dialog__body {
+  color: var(--app-text-soft);
+}
+
 .el-popper,
 .el-dropdown-menu,
 .el-select-dropdown,

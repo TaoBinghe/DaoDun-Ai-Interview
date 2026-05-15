@@ -86,8 +86,8 @@
         </p>
       </div>
 
-      <div class="min-h-[320px] w-full min-w-0">
-        <div ref="growthChartRef" class="h-[340px] w-full min-w-0" />
+      <div class="min-h-[340px] w-full min-w-0">
+        <div ref="growthChartRef" class="h-[340px] w-full min-w-0" style="min-width:300px" />
       </div>
     </el-card>
 
@@ -393,6 +393,7 @@ function goReport(sessionId: number) {
 }
 
 function formatGrowthAxisDate(iso: string) {
+  if (!iso) return ''
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso.slice(0, 10)
   return `${d.getMonth() + 1}/${d.getDate()}`
@@ -411,68 +412,74 @@ function initGrowthChart() {
     return
   }
 
-  const points = growthChartPoints
-  const categories = points.map((p) => formatGrowthAxisDate(p.startedAt))
-  const textMuted = readCssVar('--app-text-muted', '#9ca3af')
-  const border = readCssVar('--app-border', '#e5e7eb')
-  const splitLine = readCssVar('--app-border-strong', 'rgba(0,0,0,0.08)')
+  try {
+    const points = growthChartPoints
+    const categories = points.map((p) => formatGrowthAxisDate(p.startedAt))
+    const textMuted = readCssVar('--app-text-muted', '#9ca3af')
+    const border = readCssVar('--app-border', '#e5e7eb')
+    const splitLine = readCssVar('--app-border-strong', 'rgba(0,0,0,0.08)')
 
-  const legendSelected: Record<string, boolean> = {}
-  for (const d of EVALUATION_ABILITY_DIMENSIONS) {
-    legendSelected[d.label] = d.defaultSelected
+    const legendSelected: Record<string, boolean> = {}
+    for (const d of EVALUATION_ABILITY_DIMENSIONS) {
+      legendSelected[d.label] = d.defaultSelected
+    }
+
+    const series = EVALUATION_ABILITY_DIMENSIONS.map((dim) => ({
+      name: dim.label,
+      type: 'line' as const,
+      smooth: true,
+      smoothMonotone: 'x' as const,
+      symbolSize: 6,
+      emphasis: { focus: 'series' as const },
+      data: points.map((p) => {
+        const raw = dim.key === 'overallScore' ? p.overallScore : p.abilityScores[dim.key]
+        return typeof raw === 'number' && Number.isFinite(raw) ? raw : null
+      }),
+      lineStyle: { width: 2, color: dim.color },
+      itemStyle: { color: dim.color }
+    }))
+
+    if (growthChartInstance) {
+      growthChartInstance.dispose()
+    }
+    growthChartInstance = echarts.init(growthChartRef.value)
+    growthChartInstance.setOption({
+      color: EVALUATION_ABILITY_DIMENSIONS.map((d) => d.color),
+      tooltip: {
+        trigger: 'axis',
+        confine: true,
+        textStyle: { fontSize: 12 }
+      },
+      legend: {
+        type: 'scroll',
+        bottom: 0,
+        data: EVALUATION_ABILITY_DIMENSIONS.map((d) => d.label),
+        selected: legendSelected,
+        textStyle: { color: textMuted, fontSize: 11 }
+      },
+      grid: { left: 48, right: 16, top: 24, bottom: 72 },
+      xAxis: {
+        type: 'category',
+        boundaryGap: false,
+        data: categories,
+        axisLine: { lineStyle: { color: border } },
+        axisLabel: { color: textMuted, fontSize: 11, rotate: categories.length > 8 ? 28 : 0 }
+      },
+      yAxis: {
+        type: 'value',
+        min: 0,
+        max: 100,
+        splitLine: { lineStyle: { color: splitLine } },
+        axisLabel: { color: textMuted, fontSize: 11 }
+      },
+      series
+    })
+    growthChartInstance.resize()
+  } catch (e) {
+    console.error('[GrowthChart] init failed:', e)
+    growthChartInstance?.dispose()
+    growthChartInstance = null
   }
-
-  const series = EVALUATION_ABILITY_DIMENSIONS.map((dim) => ({
-    name: dim.label,
-    type: 'line' as const,
-    smooth: true,
-    smoothMonotone: 'x' as const,
-    symbolSize: 6,
-    emphasis: { focus: 'series' as const },
-    data: points.map((p) => {
-      const raw = dim.key === 'overallScore' ? p.overallScore : p.abilityScores[dim.key]
-      return typeof raw === 'number' && Number.isFinite(raw) ? raw : null
-    }),
-    lineStyle: { width: 2, color: dim.color },
-    itemStyle: { color: dim.color }
-  }))
-
-  if (growthChartInstance) {
-    growthChartInstance.dispose()
-  }
-  growthChartInstance = echarts.init(growthChartRef.value)
-  growthChartInstance.setOption({
-    color: EVALUATION_ABILITY_DIMENSIONS.map((d) => d.color),
-    tooltip: {
-      trigger: 'axis',
-      confine: true,
-      textStyle: { fontSize: 12 }
-    },
-    legend: {
-      type: 'scroll',
-      bottom: 0,
-      data: EVALUATION_ABILITY_DIMENSIONS.map((d) => d.label),
-      selected: legendSelected,
-      textStyle: { color: textMuted, fontSize: 11 }
-    },
-    grid: { left: 48, right: 16, top: 24, bottom: 72 },
-    xAxis: {
-      type: 'category',
-      boundaryGap: false,
-      data: categories,
-      axisLine: { lineStyle: { color: border } },
-      axisLabel: { color: textMuted, fontSize: 11, rotate: categories.length > 8 ? 28 : 0 }
-    },
-    yAxis: {
-      type: 'value',
-      min: 0,
-      max: 100,
-      splitLine: { lineStyle: { color: splitLine } },
-      axisLabel: { color: textMuted, fontSize: 11 }
-    },
-    series
-  })
-  growthChartInstance.resize()
 }
 
 async function loadSessions() {
@@ -493,7 +500,9 @@ async function loadSessions() {
 }
 
 watch(resolvedTheme, () => {
-  nextTick(() => initGrowthChart())
+  nextTick(() => {
+    requestAnimationFrame(() => initGrowthChart())
+  })
 })
 
 function onGrowthResize() {
@@ -503,7 +512,9 @@ function onGrowthResize() {
 onMounted(() => {
   loadSessions()
   window.addEventListener('resize', onGrowthResize)
-  nextTick(() => initGrowthChart())
+  nextTick(() => {
+    requestAnimationFrame(() => initGrowthChart())
+  })
 })
 
 onUnmounted(() => {

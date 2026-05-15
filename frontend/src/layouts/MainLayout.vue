@@ -27,7 +27,7 @@
                   :key="position.value"
                 >
                   <router-link
-                    :to="{ path: '/interview', query: { position: position.value } }"
+                    :to="{ path: '/interview' }"
                     class="dropdown-link"
                   >
                     {{ position.label }}

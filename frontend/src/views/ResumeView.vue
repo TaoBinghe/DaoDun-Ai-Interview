@@ -106,94 +106,89 @@
       append-to-body
     >
       <div class="parsed-preview-scroll max-h-[min(72vh,560px)] overflow-y-auto pr-1">
-        <header class="parsed-hero border-b border-[var(--app-border)] pb-4 mb-5">
-          <h3 class="text-xl font-semibold theme-title">{{ parsedMock.name }}</h3>
-          <p class="mt-1 text-sm theme-text-muted">{{ parsedMock.headline }}</p>
-          <ul class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs theme-text-soft">
-            <li>{{ parsedMock.phone }}</li>
-            <li>{{ parsedMock.email }}</li>
-            <li>{{ parsedMock.location }}</li>
-          </ul>
-          <p class="mt-3 text-sm theme-text-soft">
-            <span class="font-medium theme-title">求职意向：</span>{{ parsedMock.intention }}
+        <!-- 头部 -->
+        <header class="parsed-header">
+          <h3 class="parsed-name">{{ parsedPreview.name || '未命名' }}</h3>
+          <p v-if="parsedPreview.headline" class="parsed-headline">{{ parsedPreview.headline }}</p>
+          <div
+            v-if="parsedPreview.phone || parsedPreview.email || parsedPreview.location"
+            class="parsed-contact-row"
+          >
+            <span v-if="parsedPreview.phone">{{ parsedPreview.phone }}</span>
+            <span v-if="parsedPreview.email">{{ parsedPreview.email }}</span>
+            <span v-if="parsedPreview.location">{{ parsedPreview.location }}</span>
+          </div>
+          <p v-if="parsedPreview.intention" class="parsed-intention">
+            <span class="parsed-intention-label">求职意向</span>
+            <span>{{ parsedPreview.intention }}</span>
           </p>
         </header>
 
-        <section class="parsed-block mb-5">
+        <!-- 教育经历 -->
+        <section v-if="parsedPreview.education.length" class="parsed-block">
           <h4 class="parsed-block-title">教育经历</h4>
-          <ul class="mt-2 space-y-3">
-            <li
-              v-for="(edu, i) in parsedMock.education"
-              :key="i"
-              class="parsed-item rounded-xl p-3"
-            >
-              <p class="text-sm font-medium theme-title">{{ edu.school }} · {{ edu.degree }} · {{ edu.major }}</p>
-              <p class="mt-1 text-xs theme-text-muted">{{ edu.period }}</p>
+          <ul class="parsed-list">
+            <li v-for="(edu, i) in parsedPreview.education" :key="i" class="parsed-item">
+              <p class="parsed-item-title">{{ [edu.school, edu.degree, edu.major].filter(Boolean).join(' · ') }}</p>
+              <p v-if="edu.period" class="parsed-item-sub">{{ edu.period }}</p>
             </li>
           </ul>
         </section>
 
-        <section class="parsed-block mb-5">
+        <!-- 工作经历 -->
+        <section v-if="parsedPreview.experience.length" class="parsed-block">
           <h4 class="parsed-block-title">工作经历</h4>
-          <ul class="mt-2 space-y-4">
-            <li
-              v-for="(exp, i) in parsedMock.experience"
-              :key="i"
-              class="parsed-item rounded-xl p-3"
-            >
-              <p class="text-sm font-medium theme-title">{{ exp.company }} — {{ exp.title }}</p>
-              <p class="mt-0.5 text-xs theme-text-muted">{{ exp.period }}</p>
-              <ul class="mt-2 list-disc space-y-1 pl-4 text-sm theme-text-soft">
+          <ul class="parsed-list">
+            <li v-for="(exp, i) in parsedPreview.experience" :key="i" class="parsed-item">
+              <p class="parsed-item-title">{{ [exp.company, exp.title].filter(Boolean).join(' — ') }}</p>
+              <p v-if="exp.period" class="parsed-item-sub">{{ exp.period }}</p>
+              <ul v-if="exp.highlights.length" class="parsed-highlights">
                 <li v-for="(h, hi) in exp.highlights" :key="hi">{{ h }}</li>
               </ul>
             </li>
           </ul>
         </section>
 
-        <section class="parsed-block mb-5">
+        <!-- 项目经历 -->
+        <section v-if="parsedPreview.projects.length" class="parsed-block">
           <h4 class="parsed-block-title">项目经历</h4>
-          <ul class="mt-2 space-y-3">
-            <li
-              v-for="(proj, i) in parsedMock.projects"
-              :key="i"
-              class="parsed-item rounded-xl p-3"
-            >
-              <p class="text-sm font-medium theme-title">{{ proj.name }}</p>
-              <p class="mt-1 text-xs theme-text-muted">{{ proj.stack }}</p>
-              <p class="mt-2 text-sm theme-text-soft leading-relaxed">{{ proj.description }}</p>
+          <ul class="parsed-list">
+            <li v-for="(proj, i) in parsedPreview.projects" :key="i" class="parsed-item">
+              <p class="parsed-item-title">{{ proj.name }}</p>
+              <p v-if="proj.stack" class="parsed-item-sub">{{ proj.stack }}</p>
+              <p v-if="proj.description" class="parsed-item-desc">{{ proj.description }}</p>
             </li>
           </ul>
         </section>
 
-        <section class="parsed-block mb-5">
+        <!-- 技能标签 -->
+        <section v-if="parsedPreview.skills.length" class="parsed-block">
           <h4 class="parsed-block-title">技能标签</h4>
-          <div class="mt-2 flex flex-wrap gap-2">
-            <span
-              v-for="(sk, i) in parsedMock.skills"
-              :key="i"
-              class="parsed-skill-tag rounded-lg px-2.5 py-1 text-xs"
-            >
-              {{ sk }}
-            </span>
+          <div class="parsed-skills">
+            <span v-for="(sk, i) in parsedPreview.skills" :key="i" class="parsed-skill-tag">{{ sk }}</span>
           </div>
         </section>
 
-        <section class="parsed-block">
+        <!-- 自我评价 -->
+        <section v-if="parsedPreview.summary" class="parsed-block">
           <h4 class="parsed-block-title">自我评价</h4>
-          <p class="mt-2 text-sm theme-text-soft leading-relaxed whitespace-pre-wrap">
-            {{ parsedMock.summary }}
-          </p>
+          <p class="parsed-summary">{{ parsedPreview.summary }}</p>
         </section>
+
+        <!-- 空数据占位 -->
+        <div v-if="isPreviewEmpty" class="parsed-empty">
+          <p class="parsed-empty-text">简历解析后暂无结构化数据，请确认 PDF 内容是否可读。</p>
+        </div>
       </div>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { deleteResumeById, fetchMyResumes, type ResumeItem, uploadResume } from '../api/resume'
-import { RESUME_PARSED_PREVIEW_MOCK } from '../mocks/resumeParsedPreviewMock'
+import { RESUME_PARSED_PREVIEW_MOCK, type ResumeParsedPreview } from '../mocks/resumeParsedPreviewMock'
 
 const resumes = ref<ResumeItem[]>([])
 const isLoadingList = ref(false)
@@ -202,7 +197,42 @@ const deletingId = ref<number | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const selectedFileName = ref('')
 const showParsedPreview = ref(false)
-const parsedMock = RESUME_PARSED_PREVIEW_MOCK
+const lastUploadedItem = ref<ResumeItem | null>(null)
+
+function buildParsedPreview(item: ResumeItem | null): ResumeParsedPreview {
+  if (!item) return RESUME_PARSED_PREVIEW_MOCK
+  return {
+    name: item.fileName.replace(/\.pdf$/i, ''),
+    headline: [item.education?.[0], item.previewText?.slice(0, 40)].filter(Boolean).join(' · ') || '待解析',
+    phone: '',
+    email: '',
+    location: '',
+    intention: '',
+    education: (item.education ?? []).map((e) => ({
+      school: e,
+      degree: '',
+      major: '',
+      period: ''
+    })),
+    experience: [],
+    projects: (item.projects ?? []).map((p) => ({
+      name: p,
+      stack: '',
+      description: ''
+    })),
+    skills: item.skills ?? [],
+    summary: item.previewText ?? ''
+  }
+}
+
+const parsedPreview = computed(() => buildParsedPreview(lastUploadedItem.value))
+
+const isPreviewEmpty = computed(() => {
+  const p = parsedPreview.value
+  return !p.name && !p.headline && !p.phone && !p.email && !p.location &&
+    !p.intention && !p.education.length && !p.experience.length &&
+    !p.projects.length && !p.skills.length && !p.summary
+})
 
 const allowedExtensions = ['pdf']
 
@@ -247,8 +277,12 @@ async function doUpload(file: File) {
   selectedFileName.value = file.name
   isUploading.value = true
   try {
-    await uploadResume(file)
+    const res = await uploadResume(file)
     ElMessage.success('简历上传成功')
+    if (res?.data) {
+      lastUploadedItem.value = res.data
+      showParsedPreview.value = true
+    }
     await loadResumes()
   } finally {
     isUploading.value = false
@@ -351,22 +385,168 @@ onMounted(() => {
   color: var(--app-text);
 }
 
-.parsed-block-title {
+</style>
+
+<style>
+/* 结构化预览弹窗 —— 非 scoped，因 el-dialog append-to-body 后依赖全局样式 */
+.resume-parsed-dialog .parsed-preview-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--app-accent) 28%, transparent) transparent;
+}
+
+.resume-parsed-dialog .parsed-preview-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.resume-parsed-dialog .parsed-preview-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.resume-parsed-dialog .parsed-preview-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--app-accent) 28%, transparent);
+  border-radius: 9999px;
+}
+
+/* 头部 */
+.resume-parsed-dialog .parsed-header {
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--app-border);
+}
+.resume-parsed-dialog .parsed-name {
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--app-text);
+}
+.resume-parsed-dialog .parsed-headline {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--app-text-muted);
+}
+.resume-parsed-dialog .parsed-contact-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--app-text-soft);
+}
+.resume-parsed-dialog .parsed-intention {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-top: 0.625rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--app-text-soft);
+}
+.resume-parsed-dialog .parsed-intention-label {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: var(--app-text);
+  flex-shrink: 0;
+}
+
+/* 区块 */
+.resume-parsed-dialog .parsed-block {
+  margin-bottom: 1.5rem;
+}
+.resume-parsed-dialog .parsed-block:last-child {
+  margin-bottom: 0;
+}
+.resume-parsed-dialog .parsed-block-title {
   font-size: 0.8125rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--app-text-muted) 88%, transparent);
+  color: var(--app-text-muted);
+  margin-bottom: 0.625rem;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--app-border) 50%, transparent);
 }
 
-.parsed-item {
+/* 列表 */
+.resume-parsed-dialog .parsed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+.resume-parsed-dialog .parsed-item {
   background: var(--app-surface-soft);
   border: 1px solid var(--app-border);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+.resume-parsed-dialog .parsed-item-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--app-text);
+}
+.resume-parsed-dialog .parsed-item-sub {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  color: var(--app-text-muted);
+}
+.resume-parsed-dialog .parsed-item-desc {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  color: var(--app-text-soft);
 }
 
-.parsed-skill-tag {
-  background: color-mix(in srgb, var(--app-accent) 12%, var(--app-surface-soft));
-  border: 1px solid color-mix(in srgb, var(--app-accent) 22%, transparent);
+/* 亮点 */
+.resume-parsed-dialog .parsed-highlights {
+  margin-top: 0.5rem;
+  padding-left: 1.125rem;
+  list-style: disc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.6;
   color: var(--app-text-soft);
+}
+.resume-parsed-dialog .parsed-highlights li::marker {
+  color: var(--app-text-muted);
+}
+
+/* 技能 */
+.resume-parsed-dialog .parsed-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.resume-parsed-dialog .parsed-skill-tag {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--app-accent) 10%, var(--app-surface-soft));
+  border: 1px solid color-mix(in srgb, var(--app-accent) 20%, transparent);
+  color: var(--app-text-soft);
+}
+
+/* 自我评价 */
+.resume-parsed-dialog .parsed-summary {
+  font-size: 0.8125rem;
+  line-height: 1.75;
+  color: var(--app-text-soft);
+  white-space: pre-wrap;
+}
+
+/* 空状态 */
+.resume-parsed-dialog .parsed-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+}
+.resume-parsed-dialog .parsed-empty-text {
+  font-size: 0.8125rem;
+  color: var(--app-text-faint);
 }
 </style>
